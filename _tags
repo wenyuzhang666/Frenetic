@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 006599c297397dd9cd71b6ad0db234fd)
+# DO NOT EDIT (digest: 96f253e7d25625017d61441fa96e1c88)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -114,24 +114,6 @@
 "frenetic/katnetic.byte": pkg_openflow.lwt
 "frenetic/katnetic.byte": pkg_threads
 "frenetic/katnetic.byte": pkg_topology
-# Executable dehop_test
-"frenetic/dehop_test.byte": use_netcore
-"frenetic/dehop_test.byte": pkg_lwt
-"frenetic/dehop_test.byte": pkg_lwt.syntax
-"frenetic/dehop_test.byte": pkg_packet
-"frenetic/dehop_test.byte": pkg_cstruct
-"frenetic/dehop_test.byte": pkg_dprle
-"frenetic/dehop_test.byte": pkg_core
-"frenetic/dehop_test.byte": pkg_sexplib
-"frenetic/dehop_test.byte": pkg_sexplib.syntax
-"frenetic/dehop_test.byte": pkg_lwt.syntax.log
-"frenetic/dehop_test.byte": pkg_lwt.unix
-"frenetic/dehop_test.byte": pkg_str
-"frenetic/dehop_test.byte": pkg_ocamlgraph
-"frenetic/dehop_test.byte": pkg_openflow
-"frenetic/dehop_test.byte": pkg_openflow.lwt
-"frenetic/dehop_test.byte": pkg_threads
-"frenetic/dehop_test.byte": pkg_topology
 # Executable netkat_test
 "frenetic/netkat_test.byte": use_netcore
 "frenetic/netkat_test.byte": pkg_lwt

@@ -252,7 +252,7 @@ module Optimization = struct
       | VSeq(p, VFilter True) -> simplify_vpol p
       | VSeq(p, q) -> let p' = simplify_vpol p in
                       let q' = simplify_vpol q in
-                      if p' = p & q' = q then
+                      if p' = p && q' = q then
                         VSeq(p',q')
                       else
                         simplify_vpol (VSeq(p',q'))
@@ -270,7 +270,7 @@ module Optimization = struct
         else
           let p' = simplify_vpol p in
           let q' = simplify_vpol q in
-          if p' = p & q' = q then
+          if p' = p && q' = q then
             VPar(p',q')
           else
             simplify_vpol (VPar(p',q'))
@@ -286,7 +286,7 @@ module Optimization = struct
         else
           let p' = simplify_vpol p in
           let q' = simplify_vpol q in
-          if p' = p & q' = q
+          if p' = p && q' = q
           then VChoice(p',q')
           else simplify_vpol (VChoice(p',q'))
       | VStar(VFilter False) -> VFilter True
@@ -711,7 +711,7 @@ module Optimization = struct
         end
       | VSeq(p,q) -> let p' = distribute_seq p in
                      let q' = distribute_seq q in
-                     if seq_atomic p' & seq_atomic q' then
+                     if seq_atomic p' && seq_atomic q' then
                        VSeq(p',q')
                      else
                        (* let () = Printf.printf "VSeq \tp': %s\n\t q' %s\n%!" (string_of_vpolicy p') (string_of_vpolicy q') in *)
@@ -871,7 +871,7 @@ let rec simplify_pol p =
     | Seq(p, Filter True) -> simplify_pol p
     | Seq(p, q) -> let p' = simplify_pol p in
                     let q' = simplify_pol q in
-                    if p' = p & q' = q then
+                    if p' = p && q' = q then
                       Seq(p',q')
                     else
                       simplify_pol (Seq(p',q'))
@@ -889,7 +889,7 @@ let rec simplify_pol p =
       else
         let p' = simplify_pol p in
         let q' = simplify_pol q in
-        if p' = p & q' = q then
+        if p' = p && q' = q then
           Par(p',q')
         else
           simplify_pol (Par(p',q'))
@@ -905,7 +905,7 @@ let rec simplify_pol p =
       else
         let p' = simplify_pol p in
         let q' = simplify_pol q in
-        if p' = p & q' = q
+        if p' = p && q' = q
         then Choice(p',q')
         else simplify_pol (Choice(p',q'))
     | Star(Filter False) -> Filter True

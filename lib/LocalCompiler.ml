@@ -32,7 +32,32 @@ let header_val_map_to_string eq sep m =
         (if acc = "" then "" else sep ^ acc))
     m ""
 
-module Action = struct
+module Action : sig 
+  type t = Types.header_val_map
+  val to_string : t -> string
+  module Set : Set.S with type Elt.t = t
+  val set_to_string : Set.t -> string
+  type group
+  val group_compare : group -> group -> int
+  val group_equal : group -> group -> bool
+  val group_to_string : group -> string
+  val mk_group : Set.t list -> group
+  val group_crossproduct : group -> group -> group
+  val group_union : group -> group -> group
+  val group_fold : group -> init:'a -> f:('a -> Set.t -> 'a) -> 'a
+  val group_map : group -> f:(Set.t -> 'a) -> 'a list
+  val group_is_drop : group -> bool
+  val id : Set.t
+  val drop : Set.t
+  val is_id : Set.t -> bool
+  val is_drop : Set.t -> bool
+  val seq_act : t -> t -> t
+  val seq_acts : t -> Set.t -> Set.t
+  val seq_group : t -> group -> group
+  val to_netkat : t -> Types.policy
+  val set_to_netkat : Set.t -> Types.policy
+  val group_to_netkat : group -> Types.policy
+end = struct
   type t = Types.header_val_map sexp_opaque with sexp 
       
   type this_t = t with sexp
@@ -75,10 +100,7 @@ module Action = struct
          "; "
          g)
 
-  let set_union (s1:Set.t) (s2:Set.t) = 
-    Set.union s1 s2 
- 
-  let mk_group (g:group) : group =
+  let mk_group (g:Set.t list) : group =
     List.rev
       (List.fold g ~init:[]
 	 ~f:(fun acc si ->
@@ -124,6 +146,15 @@ module Action = struct
 
   let is_drop (s:Set.t) : bool =
     Set.is_empty s
+
+  let group_is_drop (g:group) : bool = 
+    match g with 
+      | [s] -> is_drop s
+      | _ -> false
+
+  let group_fold g = List.fold g
+
+  let group_map g = List.map g
 
   let seq_act (a1:t) (a2:t) : t =
     let f h vo1 vo2 = match vo1, vo2 with
@@ -437,16 +468,18 @@ module Local = struct
           (Atom.to_string r) (Action.group_to_string g))
 
   let extend (r:Atom.t) (g:Action.group) (p:t) : t =
-    match g, Atom.mk r with 
-      | [s],_ when Action.is_drop s -> p
-      | _, None -> 
-	p
-      | _, Some (xs,x) ->
-	if Atom.Map.mem p r then
-          let msg = Printf.sprintf "Local.extend: overlap on atom %s" (Atom.to_string r) in 
-          failwith msg
-        else
-          Atom.Map.add p r g
+    if Action.group_is_drop g then 
+      p 
+    else 
+      match Atom.mk r with 
+        | None -> 
+	  p
+        | Some (xs,x) ->
+	  if Atom.Map.mem p r then
+            let msg = Printf.sprintf "Local.extend: overlap on atom %s" (Atom.to_string r) in 
+            failwith msg
+          else
+            Atom.Map.add p r g
 
   let intersect (op:Action.group -> Action.group -> Action.group) (p:t) (q:t) : t =
     if Atom.Map.is_empty p || Atom.Map.is_empty q then
@@ -540,7 +573,7 @@ module Local = struct
     let r =
       Atom.Map.fold p ~init:Atom.Map.empty
         ~f:(fun ~key:r1 ~data:g1 acc ->
-	  List.fold g1 ~init:acc
+	  Action.group_fold g1 ~init:acc
             ~f:(fun acc si -> 
 	      Atom.Map.merge ~f:union_merge acc (seq_atom_acts_local r1 si q))) in 
       (* Printf.printf *)
@@ -556,17 +589,17 @@ module Local = struct
 	  Atom.Set.fold acc ~init:Atom.Set.empty
 	    ~f:(fun acc ri -> Atom.Set.union (Atom.diff_atom ri r) acc)) in 
     Atom.Set.fold rs ~init:Atom.Map.empty
-      ~f:(fun acc ri -> extend ri [Action.id] acc) 
+      ~f:(fun acc ri -> extend ri (Action.mk_group [Action.id]) acc) 
 
   let rec of_pred (sw:SDN_Types.fieldVal) (pr:Types.pred) : t =
     let rec loop pr k = 
       match pr with
       | Types.True ->
-        k (Atom.Map.singleton Atom.tru [Action.id])
+        k (Atom.Map.singleton Atom.tru (Action.mk_group [Action.id]))
       | Types.False ->
         k (Atom.Map.empty)
       | Types.Neg pr ->
-        loop pr (fun p -> k (negate p))
+        loop pr (fun (p:t) -> k (negate p))
       | Types.Test (Types.Switch, v) ->
         if v = sw then 
           loop Types.True k
@@ -574,7 +607,7 @@ module Local = struct
           loop Types.False k
       | Types.Test (h, v) ->
         let p = Types.HeaderMap.singleton h v in
-        k (Atom.Map.singleton (Pattern.Set.empty, p) [Action.id])
+        k (Atom.Map.singleton (Pattern.Set.empty, p) (Action.mk_group [Action.id]))
       | Types.And (pr1, pr2) ->
         loop pr1 (fun p1 -> loop pr2 (fun p2 -> k (seq_local p1 p2)))
       | Types.Or (pr1, pr2) ->
@@ -591,7 +624,7 @@ module Local = struct
         acc
       else
         loop acc' psucci in
-    let p0 = Atom.Map.singleton Atom.tru [Action.id] in
+    let p0 = Atom.Map.singleton Atom.tru (Action.mk_group [Action.id]) in
     let r = loop p0 p0 in 
     (* Printf.printf *)
     (*   "STAR_LOCAL\n%s\n%s\n\n%!" *)
@@ -605,7 +638,7 @@ module Local = struct
         | Types.Filter pr ->
           k (of_pred sw pr)
         | Types.Mod (h, v) ->
-          k (Atom.Map.singleton Atom.tru [Action.Set.singleton (Types.HeaderMap.singleton h v)])
+          k (Atom.Map.singleton Atom.tru (Action.mk_group [Action.Set.singleton (Types.HeaderMap.singleton h v)]))
         | Types.Par (pol1, pol2) ->
           loop pol1 (fun p1 -> loop pol2 (fun p2 -> k (par_local p1 p2)))
         | Types.Choice (pol1, pol2) ->
@@ -685,7 +718,7 @@ module RunTime = struct
     Action.Set.fold s ~f:f ~init:[]
 
   let group_to_action (g:Action.group) (pto:VInt.t option) : SDN_Types.group =
-    List.map g ~f:(fun s -> set_to_action s pto) 
+    Action.group_map g ~f:(fun s -> set_to_action s pto) 
 
   let to_pattern (x:Pattern.t) : SDN_Types.pattern =
     let f (h : Types.header) (v : Types.header_val) (pat : SDN_Types.pattern) =
@@ -747,7 +780,7 @@ module RunTime = struct
                 acc
               else
                 Pattern.Set.add acc yi) in 
-        let acc' = Pattern.Set.fold zs ~init:acc ~f:(fun acc x -> add_flow x [Action.drop] acc) in
+        let acc' = Pattern.Set.fold zs ~init:acc ~f:(fun acc x -> add_flow x (Action.mk_group [Action.drop]) acc) in
         let acc'' = add_flow x g acc' in
         let cover' = Pattern.Set.add (Pattern.Set.union zs cover) x in
         assert (not (Atom.Map.equal Action.group_equal p p'));

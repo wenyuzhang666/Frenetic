@@ -15,7 +15,7 @@ module Action : sig
 end
 
 module Pattern : sig
-  type t = Types.header_val_map
+  type t
   val compare : t -> t -> int
 
   module Set : Set.S with type elt = t

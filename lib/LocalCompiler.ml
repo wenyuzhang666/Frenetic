@@ -159,7 +159,28 @@ module Action = struct
         List.fold_left f (set_to_netkat s) g'
 end
 
-module Pattern = struct
+module type Pattern_S = sig
+  type t
+  val compare : t -> t -> int
+
+  module Set : Set.S with type elt = t
+
+  val set_to_string : Set.t -> string
+  val to_string : t -> string
+  val tru : t
+  val is_tru : t -> bool
+  val seq_pat : t -> t -> t option
+  val seq_act_pat : t -> Action.t -> t -> t option
+  val set_to_netkat : Set.t -> Types.pred
+  val to_netkat : t -> Types.pred
+
+  (* NOT IN PUBLIC INTERFACE *)
+  val subseteq_pat : t -> t -> bool
+  val test_pat : Types.header -> Types.header_val -> t
+  val to_sdn : t -> SDN_Types.pattern
+end
+
+module Pattern : Pattern_S = struct
   exception Empty_pat
 
   type t = Types.header_val_map
@@ -168,7 +189,6 @@ module Pattern = struct
 
   module Set = Set.Make(struct
     type t = Types.header_val_map
-
     let compare = compare
   end)
 
@@ -263,6 +283,17 @@ module Pattern = struct
       let xs' = Set.remove x xs in
       let f x pol = Types.Or(pol, to_netkat x) in
       Set.fold f xs' (to_netkat x)
+
+  let test_pat h v : t =
+    Types.HeaderMap.singleton h v
+
+  let to_sdn (x:t) : SDN_Types.pattern =
+    let f (h : Types.header) (v : Types.header_val) (pat : SDN_Types.pattern) =
+      match h with
+        | Types.Switch ->
+          raise (Invalid_argument "Pattern.to_sdn: unexpected switch")
+        | Types.Header h' -> SDN_Types.FieldMap.add h' v pat in
+    Types.HeaderMap.fold f x SDN_Types.FieldMap.empty
 end
 
 module Atom = struct
@@ -539,7 +570,7 @@ module Local = struct
         else
           loop Types.False k
       | Types.Test (h, v) ->
-        let p = Types.HeaderMap.singleton h v in
+        let p = Pattern.test_pat h v in
         k (Atom.Map.singleton (Pattern.Set.empty, p) [Action.id])
       | Types.And (pr1, pr2) ->
         loop pr1 (fun p1 -> loop pr2 (fun p2 -> k (seq_local p1 p2)))
@@ -646,14 +677,6 @@ module RunTime = struct
   let group_to_action (g:Action.group) (pto:VInt.t option) : SDN_Types.group =
     List.map (fun s -> set_to_action s pto) g
 
-  let to_pattern (x:Pattern.t) : SDN_Types.pattern =
-    let f (h : Types.header) (v : Types.header_val) (pat : SDN_Types.pattern) =
-      match h with
-        | Types.Switch ->
-          raise (Invalid_argument "RunTime.to_pattern: unexpected switch")
-        | Types.Header h' -> SDN_Types.FieldMap.add h' v pat in
-    Types.HeaderMap.fold f x SDN_Types.FieldMap.empty
-
   type i = Local.t
 
   let compile (sw:SDN_Types.fieldVal) (pol:Types.policy) : i =
@@ -676,13 +699,14 @@ module RunTime = struct
 
   (* Prunes out rules that apply to other switches. *)
   let to_table (p:i) : SDN_Types.flowTable =
-    let add_flow x g l =
-      let pto = 
-        try 
-          Some (Types.HeaderMap.find (Types.Header SDN_Types.InPort) x) 
-        with Not_found -> 
-          None in 
-      simpl_flow (to_pattern x) (group_to_action g pto) :: l in
+    let add_flow (x : Pattern.t) g l =
+      let sdn_pattern = Pattern.to_sdn x in
+      let pto =
+        try
+          Some (SDN_Types.FieldMap.find SDN_Types.InPort sdn_pattern)
+        with Not_found ->
+          None in
+      simpl_flow sdn_pattern (group_to_action g pto) :: l in
     let rec loop (p:i) acc cover =
       if Atom.Map.is_empty p then
         acc

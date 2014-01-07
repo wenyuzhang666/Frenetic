@@ -342,7 +342,24 @@ module Pattern : Pattern_S = struct
     Types.HeaderMap.fold f x SDN_Types.FieldMap.empty
 end
 
-module Atom = struct
+module type Atom_S = sig
+  type t = Pattern.Set.t * Pattern.t
+  module Map : Map.S with type key = t
+  module Set : Set.S with type elt = t
+  val to_string : t -> string
+  val set_to_string : Set.t -> string
+  val seq_atom : t -> t -> t option
+  val seq_act_atom : t -> Action.t -> t -> t option
+  val diff_atom : t -> t -> Set.t
+  val tru : t
+  val fls : t
+
+  (* NOT IN PUBLIC INTERFACE *)
+  val mk : t -> t option
+  val of_pattern : Pattern.t -> t
+end
+
+module Atom : Atom_S = struct
   exception Empty_atom
 
   type t = Pattern.Set.t * Pattern.t
@@ -410,6 +427,9 @@ module Atom = struct
     with Empty_atom ->
       None
 
+  let of_pattern (p : Pattern.t) : t =
+    (Pattern.Set.empty, p)
+
   let seq_atom ((xs1,x1):t) ((xs2,x2):t) : t option =
     match Pattern.seq_pat x1 x2 with
       | Some x12 ->
@@ -455,7 +475,13 @@ module Atom = struct
       xs2 acc0
 end
 
-module Local = struct
+module type Local_S = sig
+  type t = Action.group Atom.Map.t
+  val of_policy : SDN_Types.fieldVal -> Types.policy -> t
+  val to_netkat : t -> Types.policy
+end
+
+module Local : Local_S = struct
   type t = Action.group Atom.Map.t
 
   let to_string (p:t) : string =
@@ -468,11 +494,10 @@ module Local = struct
 
   let extend (r:Atom.t) (g:Action.group) (p:t) : t =
     match g, Atom.mk r with 
-      | [s],_ when Action.is_drop s -> p
-      | _, None -> 
-	p
-      | _, Some (xs,x) ->
-	if Atom.Map.mem r p then
+      | [s], _ when Action.is_drop s -> p
+      | _, None -> p
+      | _, Some _ ->
+        if Atom.Map.mem r p then
           let msg = 
             Printf.sprintf "Local.extend: overlap on atom %s" (Atom.to_string r) in 
           failwith msg
@@ -616,8 +641,8 @@ module Local = struct
         else
           loop Types.False k
       | Types.Test (h, v) ->
-        let p = Pattern.test_pat h v in
-        k (Atom.Map.singleton (Pattern.Set.empty, p) [Action.id])
+        let atom = Atom.of_pattern (Pattern.test_pat h v) in
+        k (Atom.Map.singleton atom [Action.id])
       | Types.And (pr1, pr2) ->
         loop pr1 (fun p1 -> loop pr2 (fun p2 -> k (seq_local p1 p2)))
       | Types.Or (pr1, pr2) ->

@@ -106,6 +106,9 @@ module Action = struct
   let is_drop (s:Set.t) : bool =
     Set.is_empty s
 
+  let set_act h v =
+    Types.HeaderMap.singleton h v
+
   let seq_act (a1:t) (a2:t) : t =
     let f h vo1 vo2 = match vo1, vo2 with
       | (_, Some v2) ->
@@ -595,7 +598,7 @@ module Local = struct
         | Types.Filter pr ->
           k (of_pred sw pr)
         | Types.Mod (h, v) ->
-          k (Atom.Map.singleton Atom.tru [Action.Set.singleton (Types.HeaderMap.singleton h v)])
+          k (Atom.Map.singleton Atom.tru [Action.Set.singleton (Action.set_act h v)])
         | Types.Par (pol1, pol2) ->
           loop pol1 (fun p1 -> loop pol2 (fun p2 -> k (par_local p1 p2)))
         | Types.Choice (pol1, pol2) ->

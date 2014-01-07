@@ -16,7 +16,10 @@ end
 
 module Pattern : sig
   type t = Types.header_val_map
+  val compare : t -> t -> int
+
   module Set : Set.S with type elt = t
+
   val set_to_string : Set.t -> string
   val to_string : t -> string
   val tru : t

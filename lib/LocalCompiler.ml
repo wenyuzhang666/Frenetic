@@ -164,10 +164,12 @@ module Pattern = struct
 
   type t = Types.header_val_map
 
+  let compare = Types.HeaderMap.compare Pervasives.compare
+
   module Set = Set.Make(struct
     type t = Types.header_val_map
 
-    let compare = Types.HeaderMap.compare Pervasives.compare
+    let compare = compare
   end)
 
   let to_string (x:t) : string =
@@ -274,7 +276,7 @@ module Atom = struct
     else
       let cmp = Pattern.Set.compare xs1 xs2 in
       if cmp = 0 then
-        Types.HeaderMap.compare Pervasives.compare x1 x2
+        Pattern.compare x1 x2
       else
         cmp
 
@@ -314,21 +316,18 @@ module Atom = struct
 	Pattern.Set.fold
 	  (fun xi acc ->
 	    match Pattern.seq_pat x xi with
-	      | None ->
-		acc
+          | None -> acc
 	      | Some x_xi ->
-		if Types.HeaderMap.compare Pervasives.compare x x_xi = 0 then
-		  raise Empty_atom
-		else if 
-		    Pattern.Set.exists 
-		      (fun xj -> 
-			Types.HeaderMap.compare Pervasives.compare xi xj <> 0 &&
-			  Pattern.subseteq_pat xi xj) 
-		      xs 
-		then 
-		  acc
-		else
-		  Pattern.Set.add xi acc)
+            if Pervasives.compare x x_xi = 0 then
+              raise Empty_atom
+            else if
+              Pattern.Set.exists (fun xj ->
+                Pattern.compare xi xj <> 0 && Pattern.subseteq_pat xi xj)
+              xs
+            then
+              acc
+            else
+              Pattern.Set.add xi acc)
 	  xs Pattern.Set.empty in
       Some (xs',x)
     with Empty_atom ->

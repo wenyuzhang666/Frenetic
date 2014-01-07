@@ -156,6 +156,11 @@ module Dump = struct
 end
 
 let () = 
+  Gc.set { (Gc.get()) with
+    Gc.minor_heap_size = 4 * 1024 * 1024; 
+    Gc.major_heap_increment = 32 * 1024 * 1024 }
+
+let () = 
   match Array.to_list Sys.argv with
     | (_ :: "run"  :: args) -> Run.main args
     | (_ :: "dump" :: args) -> Dump.main args

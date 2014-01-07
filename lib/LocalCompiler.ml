@@ -19,7 +19,30 @@ let header_val_map_to_string eq sep m =
 	(if acc = "" then "" else sep ^ acc))
     m ""
 
-module Action = struct
+module type Action_S = sig
+  type t = Types.header_val_map
+  module Set : Set.S with type elt = t
+
+  type group = Set.t list
+  val to_string : t -> string
+  val set_to_string : Set.t -> string
+  val group_to_string : group -> string
+  val group_compare : group -> group -> int
+  val group_crossproduct : group -> group -> group
+  val group_union : group -> group -> group
+  val seq_acts : t -> Set.t -> Set.t
+  val id : Set.t
+  val drop : Set.t
+  val group_to_netkat : group -> Types.policy
+
+  (* NOT IN PUBLIC INTERFACE *)
+  val is_drop : Set.t -> bool
+  val set_act : Types.header -> Types.header_val -> t
+  val seq_group : t -> group -> group
+  val to_sdn : t -> VInt.t option -> SDN_Types.seq
+end
+
+module Action : Action_S = struct
   type t = Types.header_val_map
 
   type this_t = t
@@ -160,6 +183,25 @@ module Action = struct
       | s::g' ->
         let f pol' s = Types.Choice (pol', set_to_netkat s) in
         List.fold_left f (set_to_netkat s) g'
+
+  let to_sdn (a:t) (pto: VInt.t option) : SDN_Types.seq =
+    let port =
+      try
+        Types.HeaderMap.find (Types.Header SDN_Types.InPort) a
+      with Not_found ->
+        begin match pto with
+          | Some pt -> pt
+          | None -> raise (Invalid_argument "Action.to_sdn: indeterminate port")
+        end in
+    let mods = Types.HeaderMap.remove (Types.Header SDN_Types.InPort) a in
+    let mk_mod h v act =
+      match h with
+        | Types.Switch ->
+          raise (Invalid_argument "Action.to_sdn: got switch update")
+        | Types.Header h' ->
+          (SDN_Types.SetField (h', v)) :: act in
+      Types.HeaderMap.fold mk_mod mods [SDN_Types.OutputPort port]
+
 end
 
 module type Pattern_S = sig
@@ -264,6 +306,7 @@ module Pattern : Pattern_S = struct
         None in
     let g h vo1 vo2 = Some (vo1, vo2) in
     try
+      (* XXX(seliopou): This does not treat Action.t as an abstract type *)
       Some (Types.HeaderMap.merge f
               (Types.HeaderMap.merge g x a) y)
     with Empty_pat ->
@@ -655,26 +698,8 @@ end
 
 module RunTime = struct
 
-  let to_action (a:Action.t) (pto: VInt.t option) : SDN_Types.seq =
-    let port = 
-      try 
-        Types.HeaderMap.find (Types.Header SDN_Types.InPort) a 
-      with Not_found -> 
-        begin match pto with 
-          | Some pt -> pt
-          | None -> raise (Invalid_argument "Action.to_action: indeterminate port")
-        end in 
-    let mods = Types.HeaderMap.remove (Types.Header SDN_Types.InPort) a in
-    let mk_mod h v act =
-      match h with
-        | Types.Switch -> 
-	  raise (Invalid_argument "Action.to_action: got switch update")
-        | Types.Header h' -> 
-	  (SDN_Types.SetField (h', v)) :: act in
-      Types.HeaderMap.fold mk_mod mods [SDN_Types.OutputPort port]  
-
   let set_to_action (s:Action.Set.t) (pto : VInt.t option) : SDN_Types.par =
-    let f a par = (to_action a pto)::par in
+    let f a par = (Action.to_sdn a pto)::par in
     Action.Set.fold f s []
 
   let group_to_action (g:Action.group) (pto:VInt.t option) : SDN_Types.group =

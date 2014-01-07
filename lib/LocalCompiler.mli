@@ -2,6 +2,7 @@ module Action : sig
   type t = Types.header_val_map
   module Set : Set.S with type elt = t
   type group = Set.t list
+
   val to_string : t -> string
   val set_to_string : Set.t -> string
   val group_to_string : group -> string

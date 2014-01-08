@@ -66,7 +66,7 @@ module Dump = struct
       let t2 = Unix.gettimeofday () in
       let t = to_table i in
       let t3 = Unix.gettimeofday () in
-      let _ = Printf.printf "@[Done [ctime=%fs ttime=%fs tsize=%d]@\n@]%!"
+      let _ = Format.printf "@[Done [ctime=%fs ttime=%fs tsize=%d]@\n@]%!"
         (t2 -. t1) (t3 -. t2) (List.length t) in
       t
 

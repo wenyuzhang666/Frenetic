@@ -457,6 +457,104 @@ module Atom = struct
 	    end)
 end
 
+module Optimize = struct
+  let mk_and pr1 pr2 = 
+    match pr1, pr2 with 
+      | Types.True, _ -> pr2
+      | _, Types.True -> pr1
+      | Types.False, _ -> Types.False
+      | _, Types.False -> Types.False
+      | _ -> Types.And(pr1, pr2)
+
+  let mk_or pr1 pr2 = 
+    match pr1, pr2 with 
+      | Types.True, _ -> Types.True
+      | _, Types.True -> Types.True
+      | Types.False, _ -> pr2
+      | _, Types.False -> pr2
+      | _ -> Types.Or(pr1, pr2)
+
+  let mk_not pat =
+    match pat with
+      | Types.False -> Types.True
+      | Types.True -> Types.False
+      | _ -> Types.Neg(pat) 
+
+  let mk_par pol1 pol2 = 
+    match pol1, pol2 with
+      | Types.Filter Types.False, _ -> pol2
+      | _, Types.Filter Types.False -> pol1
+      | _ -> Types.Par(pol1,pol2) 
+
+  let mk_seq pol1 pol2 =
+    match pol1, pol2 with
+      | Types.Filter Types.True, _ -> pol2
+      | _, Types.Filter Types.True -> pol1
+      | Types.Filter Types.False, _ -> pol1
+      | _, Types.Filter Types.False -> pol2
+      | _ -> Types.Seq(pol1,pol2) 
+
+  let mk_choice pol1 pol2 =
+    match pol1, pol2 with
+      | _ -> Types.Choice(pol1,pol2) 
+
+  let mk_and pr1 pr2 =
+    match pr1,pr2 with
+      | Types.False,_ -> pr1
+      | _,Types.False -> pr2
+      | Types.True,_ -> pr2
+      | _,Types.True -> pr1
+      | _ -> Types.And(pr1,pr2) 
+
+  let mk_star pol = 
+    match pol with 
+      | Types.Filter Types.True -> pol
+      | Types.Filter Types.False -> Types.Filter Types.True
+      | Types.Star(pol1) -> pol
+      | _ -> Types.Star(pol)
+  
+  let specialize_pred sw pr = 
+    let rec loop pr k = 
+      match pr with
+        | Types.True ->
+          k pr
+        | Types.False ->
+          k pr
+        | Types.Neg pr1 ->
+          loop pr1 (fun pr -> k (mk_not pr))
+        | Types.Test (Types.Switch, v) ->
+          if v = sw then 
+            k Types.True
+          else
+            k Types.False
+        | Types.Test (h, v) ->
+          k pr
+        | Types.And (pr1, pr2) ->
+          loop pr1 (fun p1 -> loop pr2 (fun p2 -> k (mk_and p1 p2)))
+        | Types.Or (pr1, pr2) ->
+          loop pr1 (fun p1 -> loop pr2 (fun p2 -> k (mk_or p1 p2))) in 
+    loop pr (fun x -> x)
+
+  let specialize_pol sw pol = 
+    let rec loop pol k = 
+      match pol with  
+        | Types.Filter pr ->
+          k (Types.Filter (specialize_pred sw pr))
+        | Types.Mod (h, v) ->
+          k pol 
+        | Types.Par (pol1, pol2) ->
+          loop pol1 (fun p1 -> loop pol2 (fun p2 -> k (mk_par p1 p2)))
+        | Types.Choice (pol1, pol2) ->
+          loop pol1 (fun p1 -> loop pol2 (fun p2 -> k (mk_choice p1 p2)))
+        | Types.Seq (pol1, pol2) ->
+          loop pol1 (fun p1 -> loop pol2 (fun p2 -> k (mk_seq p1 p2)))
+        | Types.Star pol ->
+          loop pol (fun p -> k (mk_star p))
+        | Types.Link(sw,pt,sw',pt') ->
+	  failwith "Not a local policy" in 
+    loop pol (fun x -> x) 
+end
+
 module Local = struct
   type t = Action.group Atom.Map.t
 
@@ -654,31 +752,7 @@ module Local = struct
       x)
 
   let to_netkat (p:t) : Types.policy =
-    (* "smart" constructors *)
-    let mk_par nc1 nc2 =
-      match nc1, nc2 with
-        | Types.Filter Types.False, _ -> nc2
-        | _, Types.Filter Types.False -> nc1
-        | _ -> Types.Par(nc1,nc2) in
-    let mk_seq nc1 nc2 =
-      match nc1, nc2 with
-        | Types.Filter Types.True, _ -> nc2
-        | _, Types.Filter Types.True -> nc1
-        | Types.Filter Types.False, _ -> nc1
-        | _, Types.Filter Types.False -> nc2
-        | _ -> Types.Seq(nc1,nc2) in
-    let mk_and pat1 pat2 =
-      match pat1,pat2 with
-        | Types.False,_ -> pat1
-        | _,Types.False -> pat2
-        | Types.True,_ -> pat2
-        | _,Types.True -> pat1
-        | _ -> Types.And(pat1,pat2) in
-    let mk_not pat =
-      match pat with
-        | Types.False -> Types.True
-        | Types.True -> Types.False
-        | _ -> Types.Neg(pat) in
+    let open Optimize in 
     let rec loop p =
       match Atom.Map.min_elt p with 
         | None -> 
@@ -731,7 +805,12 @@ module RunTime = struct
   type i = Local.t
 
   let compile (sw:SDN_Types.fieldVal) (pol:Types.policy) : i =
-    let r = Local.of_policy sw pol in 
+    let pol' = Optimize.specialize_pol sw pol in 
+    let n,n' = Semantics.size pol, Semantics.size pol' in 
+    Printf.printf "Compression: %d -> %d = %.3f" 
+      n n' (Float.of_int n' /. Float.of_int n);
+    (* Printf.printf "POLICY: %s" (Pretty.string_of_policy pol'); *)
+    let r = Local.of_policy sw pol' in 
     (* Printf.printf "COMPILE\n%s\n%s\n%!" *)
     (*   (Pretty.string_of_policy pol) *)
     (*   (Local.to_string r); *)
@@ -757,7 +836,6 @@ module RunTime = struct
         with Not_found -> 
           None in 
       simpl_flow (to_pattern x) (group_to_action g pto) :: l in
-    Printf.printf "\nLOOP\n%s\n\n%!" (Local.to_string p);
     let rec loop (p:i) acc cover =
       match Atom.Map.min_elt p with 
         | None -> 
@@ -765,7 +843,7 @@ module RunTime = struct
         | Some (r,g) -> 
           (* let _ = Printf.printf "R => G\n   %s => %s\n" (Atom.to_string r) (Action.group_to_string g) in *)
           let (xs,x) = r in
-          assert (not (Pattern.Set.mem cover x));
+          (* assert (not (Pattern.Set.mem cover x)); *)
           let p' = Atom.Map.remove p r in
           let ys = Pattern.Set.fold
             xs ~init:Pattern.Set.empty
@@ -783,12 +861,7 @@ module RunTime = struct
         let acc' = Pattern.Set.fold zs ~init:acc ~f:(fun acc x -> add_flow x (Action.mk_group [Action.drop]) acc) in
         let acc'' = add_flow x g acc' in
         let cover' = Pattern.Set.add (Pattern.Set.union zs cover) x in
-        assert (not (Atom.Map.equal Action.group_equal p p'));
-        if Pattern.Set.is_empty ys then
-          ()
-        else
-          (Printf.printf "COVR %s\n" (Pattern.set_to_string ys);
-           Printf.printf "EMIT %s => %s\n" (Pattern.to_string x) (Action.group_to_string g));
+        (* assert (not (Atom.Map.equal Action.group_equal p p')); *)
         loop p' acc'' cover' in
     List.rev (loop p [] Pattern.Set.empty)
 end

@@ -207,11 +207,10 @@ module Action : Action_S = struct
         | Types.Header h' ->
           (SDN_Types.SetField (h', v)) :: act in
       Types.HeaderMap.fold mk_mod mods [SDN_Types.OutputPort port]
-
 end
 
 module type Pattern_S = sig
-  type t
+  type t = Types.header_val_map
   val compare : t -> t -> int
 
   module Set : Set.S with type elt = t

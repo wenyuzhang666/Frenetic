@@ -1,9 +1,9 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 7e34301c7a2bdea18278e759b397e22f) *)
+(* DO NOT EDIT (digest: 0522b461fb3ba2b99b086332f6ff9c22) *)
 This is the INSTALL file for the frenetic distribution.
 
 This package uses OASIS to generate its build system. See section OASIS for
-full information. 
+full information.
 
 Dependencies
 ============
@@ -13,7 +13,7 @@ In order to compile this package, you will need:
 * findlib
 * cstruct for library netcore
 * dprle for library netcore
-* core for library netcore
+* core for library netcore, executable distfrenetic
 * sexplib for library netcore
 * lwt for library netcore, executable katnetic, executable netkat_test
 * ocamlgraph for library netcore
@@ -23,6 +23,9 @@ In order to compile this package, you will need:
 * quickcheck for library quickcheck, executable testtool
 * oUnit for executable testtool
 * pa_ounit for executable testtool
+* yojson for executable distfrenetic
+* async for executable distfrenetic
+* async_parallel for executable distfrenetic
 
 Installing
 ==========
@@ -35,7 +38,7 @@ Installing
 Uninstalling
 ============
 
-1. Go to the root of the package 
+1. Go to the root of the package
 2. Run 'ocaml setup.ml -uninstall'
 
 OASIS

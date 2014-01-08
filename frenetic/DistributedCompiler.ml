@@ -180,11 +180,11 @@ let rec reader config =
     match parsed_input with
     | [ "ship"; filename ] -> 
       ship config filename
-    | [ "compile"; filename; n ] ->
-      ((try return (Some (Int.of_string n)) with _ -> return None)
+    | [ "compile"; filename; m; n ] ->
+      ((try return (Some (Int.of_string m, Int.of_string n)) with _ -> return None)
        >>= function
        | None -> return ()
-       | Some n -> compile_all config filename n)
+       | Some (m, n) -> compile_all config filename m n)
     | _ -> return ())
   >>= function
   | Ok () -> reader config
@@ -202,9 +202,9 @@ and ship config filename =
     >>= fun bin_pol ->
     Deferred.List.iter ~how:`Parallel ~f:(ship_policy bin_pol bin) config.workers)
 
-and compile_all config filename num_switches =
+and compile_all config filename min_sw max_sw =
   let bin = filename ^ ".bin" in
-  let switches = range 1 num_switches in
+  let switches = range min_sw max_sw in
   measure_time "compilation"
     (fun () -> 
        cluster_map switches ~workers:config.workers ~f:(fun sw -> compile ~pol_dump:bin ~sw))

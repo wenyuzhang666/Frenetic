@@ -14,6 +14,10 @@ open Core.Std
 open Sexplib.Conv
 
 (* utility function *)
+let map_option f = function
+  | None -> None
+  | Some x -> Some (f x)
+
 let collection_to_string fold f sep x : string = 
   fold 
     x
@@ -209,101 +213,131 @@ end
 module Pattern = struct
   exception Empty_pat
 
-  type t = Types.header_val_map sexp_opaque with sexp
+  type t = (SDN_Types.field * VInt.t) list sexp_opaque with sexp
 
-  let compare = Types.HeaderMap.compare Pervasives.compare
+  type this_t = t sexp_opaque with sexp
+
+  let compare_field_val (f1,v1) (f2,v2) = 
+    let cmp1 = compare f1 f2 in 
+    if cmp1 <> 0 then cmp1
+    else compare v1 v2 
+
+  let compare x y = List.compare x y ~cmp:compare_field_val
 
   module Set = Set.Make(struct
-    type t = Types.header_val_map sexp_opaque with sexp
-
+    type t = this_t sexp_opaque with sexp
     let compare = compare
   end)
 
   let to_string (x:t) : string =
-    if Types.HeaderMap.is_empty x then 
-      "true"
-    else 
-      Printf.sprintf "<%s>" 
-        (header_val_map_to_string "=" ", " x)
-
+    match x with 
+      | [] -> "true"
+      | _ -> 
+        List.fold x ~init:""
+          ~f:(fun acc (f, v) ->
+            Printf.sprintf "%s%s=%s"
+              (if acc = "" then "" else ", " ^ acc)
+              (Pretty.string_of_field f)
+              (Pretty.value_to_string v))
+        
   let set_to_string (xs:Set.t) : string =
     Printf.sprintf "{%s}"
       (Set.fold xs ~init:""
          ~f:(fun acc x -> (if acc = "" then "" else acc ^ ", ") ^ to_string x))
 
-  let tru : t = 
-    Types.HeaderMap.empty
+  let tru : t = []
 
-  let is_tru (x:t) : bool =
-    Types.HeaderMap.is_empty x
-
-  let matches (h:Types.header) (v:Types.header_val) (x:t) : bool =
-    not (Types.HeaderMap.mem h x)
-    || Types.HeaderMap.find h x = v
-    
-  let subseteq_pat (x:t) (y:t) : bool = 
-    let f h vo1 vo2 = match vo1,vo2 with 
-      | Some v1, Some v2 -> 
-	if v1 <> v2 then raise Empty_pat else Some ()
-      | Some v1, None -> 
-	Some ()
-      | None, Some v1 -> 
-	raise Empty_pat
-      | None, None -> 
-	Some () in 
-    try 
-      let _ = Types.HeaderMap.merge f x y in 
-      true
-    with Empty_pat -> 
-      false
+  let is_tru (x:t) : bool = x = []
+      
+  let rec subseteq_pat (x:t) (y:t) : bool = 
+    match x,y with 
+      | _,[] -> true
+      | [],_::_ -> false
+      | (f1,v1)::x1, (f2,v2)::y2 -> 
+        let n = Pervasives.compare f1 f2 in  
+        if n = 0 then 
+          v1 = v2 && subseteq_pat x1 y2
+        else if n < 0 then 
+          subseteq_pat x1 y
+        else (* n > 0 *)
+          false
 	
-  let seq_pat (x : t) (y : t) : t option =
-    let f h vo1 vo2 = match vo1, vo2 with
-      | (Some v1, Some v2) ->
-        if v1 <> v2 then raise Empty_pat else Some v1
-      | (Some v1, None) ->
-        Some v1
-      | (None, Some v2) ->
-        Some v2
-      | (None, None) ->
-        None in
-    try
-      Some (Types.HeaderMap.merge f x y)
-    with Empty_pat ->
-      None
+  let rec seq_pat (x : t) (y : t) : t option =
+    let rec loop x y k = 
+      match x,y with 
+        | _,[] -> 
+          k (Some x)
+        | [],_ -> 
+          k (Some y)
+        | (f1,v1)::x1, (f2,v2)::y2 -> 
+          let n = Pervasives.compare f1 f2 in  
+          if n = 0 then 
+            if v1 = v2 then
+              loop x1 y2 (fun o -> k (map_option (fun l -> (f1,v1)::l) o))
+            else 
+              k None
+          else if n < 0 then 
+            loop x1 y (fun o -> k (map_option (fun l -> (f1,v1)::l) o))
+          else (* n > 0 *)
+            loop x y2 (fun o -> k (map_option (fun l -> (f2,v2)::l) o)) in 
+    let r = loop x y (fun x -> x) in 
+    (* Printf.printf "SEQ_PAT\nX=%s\nY=%s\nR=%s\n\n" *)
+    (*   (to_string x) *)
+    (*   (to_string y) *)
+    (*   (match r with | None -> "None" | Some r -> to_string r); *)
+    r
 
   let rec seq_act_pat (x:t) (a:Action.t) (y:t) : t option =
-    let f h vo1 vo2 = match vo1, vo2 with
-      | Some (vo11, Some v12), Some v2 ->
-        if v12 <> v2 then raise Empty_pat
-        else vo11
-      | Some (vo11, Some v12), None ->
-        vo11
-      | Some (Some v11, None), Some v2 ->
-        if v11 <> v2 then raise Empty_pat
-        else Some v11
-      | Some (vo11, None), None ->
-        vo11
-      | Some(None,None), Some v2
-      | None, Some v2 ->
-        Some v2
-      | None, None ->
-        None in
-    let g h vo1 vo2 = Some (vo1, vo2) in
-    try
-      Some (Types.HeaderMap.merge f
-              (Types.HeaderMap.merge g x a) y)
-    with Empty_pat ->
-      None
+    let rec loop x y k = 
+      match x,y with 
+        | _,[] -> 
+          k (Some x)
+        | [],(f2,v2)::y2 -> 
+          begin try 
+            let va = Types.HeaderMap.find (Types.Header f2) a in 
+            if va = v2 then 
+              loop x y2 k
+            else
+              k None
+          with Not_found -> 
+            loop x y2 (fun o -> k (map_option (fun l -> (f2,v2)::l) o))
+          end
+        | (f1,v1)::x1,(f2,v2)::y2 -> 
+          let n = Pervasives.compare f1 f2 in  
+          if n = 0 then 
+            try 
+              let va = Types.HeaderMap.find (Types.Header f1) a in 
+              if va = v2 then 
+                loop x1 y2 (fun o -> k (map_option (fun l -> (f1,v1)::l) o))
+              else
+                k None
+            with Not_found -> 
+              if v1 = v2 then 
+                loop x1 y2 (fun o -> k (map_option (fun l -> (f1,v1)::l) o))
+              else 
+                k None
+          else if n < 0 then 
+            loop x1 y (fun o -> k (map_option (fun l -> (f1,v1)::l) o))
+          else (* n > 0 *)
+            loop x y2 (fun o -> k (map_option (fun l -> (f2,v2)::l) o)) in 
+    let r = loop x y (fun x -> x) in 
+    (* Printf.printf "SEQ_ACT_PAT\nX=%s\nA=%s\nY=%s\nR=%s\n\n" *)
+    (*   (to_string x) *)
+    (*   (Action.to_string a) *)
+    (*   (to_string y) *)
+    (*   (match r with | None -> "None" | Some r -> to_string r); *)
+    r
 
   let to_netkat (x:t) : Types.pred =
-    if Types.HeaderMap.is_empty x then
-      Types.True
-    else
-      let f h v pol' = Types.And (pol', Types.Test (h, v)) in
-      let (h, v) = Types.HeaderMap.min_binding x in
-      let x' = Types.HeaderMap.remove h x in
-      (Types.HeaderMap.fold f x' (Types.Test (h, v)))
+    let rec loop x k = 
+      match x with 
+        | [] -> 
+          k Types.True
+        | [(f,v)] -> 
+          k (Types.Test (Types.Header f,v))
+        | (f,v)::x1 -> 
+          loop x1 (fun pr -> Types.And(Types.Test(Types.Header f,v),pr)) in 
+    loop x (fun x -> x)
 
   let set_to_netkat (xs:Set.t) : Types.pred =
     match Set.choose xs with 
@@ -387,14 +421,29 @@ module Atom = struct
 
     (* "smart" constructor *)
   let mk ((xs,x):t) : t option =
-    let f _ vo1 vo2 = match vo1,vo2 with
-      | Some v1, Some v2 when v1 = v2 -> None
-      | _ -> vo2 in 
+    (* TODO(jnf): replace this *)
+    let hack x xi = 
+      let rec loop x xi k = 
+        match x,xi with 
+          | [],_ -> k xi
+          | _,[] -> k []
+        | (f1,v1)::x2, (f2,v2)::xi2 -> 
+          let n = Pervasives.compare f1 f2 in 
+          if n = 0 then 
+            if v1 = v2 then 
+              loop x2 xi2 k 
+            else 
+              loop x2 xi2 (fun l -> k ((f2,v2)::l))
+          else if n < 0 then 
+            loop x xi2 k 
+          else (* n > 0 *)
+            loop x2 xi k in 
+      loop x xi (fun x -> x) in 
     try
       let xs' =
 	Pattern.Set.fold xs ~init:Pattern.Set.empty
 	  ~f:(fun acc xi ->
-                let xi' = Types.HeaderMap.merge f x xi in 
+                let xi' = hack x xi in  
 	        match Pattern.seq_pat x xi' with
 	          | None ->
 		    acc
@@ -404,8 +453,8 @@ module Atom = struct
 		    else if 
 		        Pattern.Set.exists xs
 		          ~f:(fun xj -> 
-			    Types.HeaderMap.compare Pervasives.compare xi' xj <> 0 &&
-			      Pattern.subseteq_pat xi' xj) 
+                            Pattern.compare xi' xj <> 0 &&
+			    Pattern.subseteq_pat xi' xj) 
 		    then 
 		      acc
 		    else
@@ -497,14 +546,6 @@ module Optimize = struct
   let mk_choice pol1 pol2 =
     match pol1, pol2 with
       | _ -> Types.Choice(pol1,pol2) 
-
-  let mk_and pr1 pr2 =
-    match pr1,pr2 with
-      | Types.False,_ -> pr1
-      | _,Types.False -> pr2
-      | Types.True,_ -> pr2
-      | _,Types.True -> pr1
-      | _ -> Types.And(pr1,pr2) 
 
   let mk_star pol = 
     match pol with 
@@ -667,7 +708,7 @@ module Local = struct
       ~init:Atom.Map.empty
 	  
   let seq_local (p:t) (q:t) : t =
-    (* Printf.printf "### SEQ [%d %d] ###\n%!" (Atom.Map.cardinal p) (Atom.Map.cardinal q); *)
+    (* Printf.printf "### SEQ [%d %d] ###\n%!" (Atom.Map.length p) (Atom.Map.length q); *)
     let r =
       Atom.Map.fold p ~init:Atom.Map.empty
         ~f:(fun ~key:r1 ~data:g1 acc ->
@@ -703,8 +744,8 @@ module Local = struct
           loop Types.True k
         else
           loop Types.False k
-      | Types.Test (h, v) ->
-        let p = Types.HeaderMap.singleton h v in
+      | Types.Test (Types.Header f, v) ->
+        let p = [(f,v)] in 
         k (Atom.Map.singleton (Pattern.Set.empty, p) (Action.mk_group [Action.id]))
       | Types.And (pr1, pr2) ->
         loop pr1 (fun p1 -> loop pr2 (fun p2 -> k (seq_local p1 p2)))
@@ -736,7 +777,8 @@ module Local = struct
         | Types.Filter pr ->
           k (of_pred sw pr)
         | Types.Mod (h, v) ->
-          k (Atom.Map.singleton Atom.tru (Action.mk_group [Action.Set.singleton (Types.HeaderMap.singleton h v)]))
+          k (Atom.Map.singleton Atom.tru 
+               (Action.mk_group [Action.Set.singleton (Types.HeaderMap.singleton h v)]))
         | Types.Par (pol1, pol2) ->
           loop pol1 (fun p1 -> loop pol2 (fun p2 -> k (par_local p1 p2)))
         | Types.Choice (pol1, pol2) ->
@@ -795,13 +837,9 @@ module RunTime = struct
     Action.group_map g ~f:(fun s -> set_to_action s pto) 
 
   let to_pattern (x:Pattern.t) : SDN_Types.pattern =
-    let f (h : Types.header) (v : Types.header_val) (pat : SDN_Types.pattern) =
-      match h with
-        | Types.Switch -> 
-          raise (Invalid_argument "RunTime.to_pattern: unexpected switch")
-        | Types.Header h' -> SDN_Types.FieldMap.add h' v pat in
-    Types.HeaderMap.fold f x SDN_Types.FieldMap.empty
-
+    List.fold x ~init:SDN_Types.FieldMap.empty
+      ~f:(fun acc (f,v) -> SDN_Types.FieldMap.add f v acc)
+      
   type i = Local.t
 
   let compile (sw:SDN_Types.fieldVal) (pol:Types.policy) : i =
@@ -832,7 +870,7 @@ module RunTime = struct
     let add_flow x g l =
       let pto = 
         try 
-          Some (Types.HeaderMap.find (Types.Header SDN_Types.InPort) x) 
+          Some (List.Assoc.find_exn x SDN_Types.InPort)
         with Not_found -> 
           None in 
       simpl_flow (to_pattern x) (group_to_action g pto) :: l in

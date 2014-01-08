@@ -1,9 +1,9 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 0522b461fb3ba2b99b086332f6ff9c22) *)
+(* DO NOT EDIT (digest: 6d38cf2e016ac48bc7de2a544c95e653) *)
 This is the INSTALL file for the frenetic distribution.
 
 This package uses OASIS to generate its build system. See section OASIS for
-full information.
+full information. 
 
 Dependencies
 ============
@@ -38,7 +38,7 @@ Installing
 Uninstalling
 ============
 
-1. Go to the root of the package
+1. Go to the root of the package 
 2. Run 'ocaml setup.ml -uninstall'
 
 OASIS

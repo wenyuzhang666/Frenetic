@@ -1,5 +1,7 @@
 open Types
 
+module SDN_A = SDN_Types_Arbitrary
+
 let all_headers = 
   [ Switch; 
     Header SDN_Types.InPort; 
@@ -14,19 +16,23 @@ let all_headers =
     Header SDN_Types.TCPSrcPort; 
     Header SDN_Types.TCPDstPort ]
 
-let arbitrary_header  = 
+let num_hdrs = List.length all_headers
+
+let arbitrary_header =
   let open QuickCheck_gen in
       elements all_headers
 
 let arbitrary_headerval =
   let open QuickCheck_gen in 
-      choose_int0 200 >>= fun rint ->
-      ret_gen (VInt.Int64 (Int64.of_int rint))
+  choose_int0 200 >>= fun rint ->
+  ret_gen (VInt.Int64 (Int64.of_int rint))
 
-let arbitrary_payload = 
-  QuickCheck_gen.Gen 
-    (fun _ -> failwith "arbitrary_payload: not yet implemented")
-    
+let arbitrary_header_val_map =
+  let open QuickCheck_gen in
+  choose_int0 num_hdrs             >>= fun num ->
+  listN num (elements all_headers) >>= fun headers ->
+  listN num arbitrary_headerval    >>= fun values ->
+    ret_gen (List.fold_right2 HeaderMap.add headers values HeaderMap.empty)
 
 let treesize n x =
   if n <= 0
@@ -123,13 +129,12 @@ let arbitrary_policy = gen_pol gen_atom_pol
 
 let arbitrary_lf_pol = gen_pol gen_lf_atom_pol
 
-let num_hdrs = List.length all_headers
 
 let arbitrary_packet : packet QuickCheck_gen.gen = 
   let open QuickCheck_gen in
   let open QuickCheck in
   listN num_hdrs arbitrary_headerval >>= fun vals ->
-    arbitrary_payload >>= fun payload ->
+  SDN_A.arbitrary_payload  >>= fun payload ->
     ret_gen {
       headers = List.fold_right2 HeaderMap.add all_headers vals HeaderMap.empty;
       payload = payload

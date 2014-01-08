@@ -59,6 +59,7 @@ Library quickcheck
   Build$: flag(quickcheck) || flag(tests)
   BuildDepends:
     quickcheck,
+    openflow.quickcheck,
     netcore
   Modules:
     NetKAT_Arbitrary

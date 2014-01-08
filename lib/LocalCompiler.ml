@@ -724,8 +724,8 @@ module RunTime = struct
         with Not_found -> 
           None in 
       simpl_flow (to_pattern x) (group_to_action g pto) :: l in
-    Printf.printf "\nLOOP\n%s\n\n%!" (Local.to_string p);
-    let rec loop (p:i) acc cover =
+(*     Printf.printf "\nLOOP\n%s\n\n%!" (Local.to_string p);
+ *)    let rec loop (p:i) acc cover =
       match Atom.Map.min_elt p with 
         | None -> 
           acc 
@@ -751,11 +751,11 @@ module RunTime = struct
         let acc'' = add_flow x g acc' in
         let cover' = Pattern.Set.add (Pattern.Set.union zs cover) x in
         assert (not (Atom.Map.equal Action.group_equal p p'));
-        if Pattern.Set.is_empty ys then
+(*         if Pattern.Set.is_empty ys then
           ()
         else
           (Printf.printf "COVR %s\n" (Pattern.set_to_string ys);
-           Printf.printf "EMIT %s => %s\n" (Pattern.to_string x) (Action.group_to_string g));
+           Printf.printf "EMIT %s => %s\n" (Pattern.to_string x) (Action.group_to_string g)); *)
         loop p' acc'' cover' in
     List.rev (loop p [] Pattern.Set.empty)
 end

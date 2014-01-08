@@ -35,6 +35,8 @@ module type Action_S = sig
   val drop : Set.t
   val group_to_netkat : group -> Types.policy
 
+  val apply : t -> Types.packet -> Types.packet
+
   (* NOT IN PUBLIC INTERFACE *)
   val is_drop : Set.t -> bool
   val set_act : Types.header -> Types.header_val -> t
@@ -184,6 +186,10 @@ module Action : Action_S = struct
         let f pol' s = Types.Choice (pol', set_to_netkat s) in
         List.fold_left f (set_to_netkat s) g'
 
+  let apply (a:t) (pk:Types.packet) : Types.packet =
+    let open Types in
+    { pk with headers = seq_act pk.headers a }
+
   let to_sdn (a:t) (pto: VInt.t option) : SDN_Types.seq =
     let port =
       try
@@ -219,6 +225,8 @@ module type Pattern_S = sig
   val set_to_netkat : Set.t -> Types.pred
   val to_netkat : t -> Types.pred
 
+  val matches_packet : Types.packet -> t -> bool
+
   (* NOT IN PUBLIC INTERFACE *)
   val subseteq_pat : t -> t -> bool
   val test_pat : Types.header -> Types.header_val -> t
@@ -252,9 +260,17 @@ module Pattern : Pattern_S = struct
   let is_tru (x:t) : bool =
     Types.HeaderMap.is_empty x
 
+  let matches_val (v:Types.header_val) (p:Types.header_val) : bool =
+    v = p
+
   let matches (h:Types.header) (v:Types.header_val) (x:t) : bool =
-    not (Types.HeaderMap.mem h x)
-    || Types.HeaderMap.find h x = v
+    try
+      matches_val v (Types.HeaderMap.find h x)
+    with Not_found -> true
+
+  let matches_packet (pk:Types.packet) (x:t) : bool =
+    let open Types in
+    HeaderMap.for_all (fun h v -> matches h v x) pk.headers
     
   let subseteq_pat (x:t) (y:t) : bool = 
     let f h vo1 vo2 = match vo1,vo2 with 
@@ -290,13 +306,15 @@ module Pattern : Pattern_S = struct
   let rec seq_act_pat (x:t) (a:Action.t) (y:t) : t option =
     let f h vo1 vo2 = match vo1, vo2 with
       | Some (vo11, Some v12), Some v2 ->
-        if v12 <> v2 then raise Empty_pat
-        else vo11
+        if matches_val v12 v2
+          then vo11
+          else raise Empty_pat
       | Some (vo11, Some v12), None ->
         vo11
       | Some (Some v11, None), Some v2 ->
-        if v11 <> v2 then raise Empty_pat
-        else Some v11
+        if v11 = v2
+          then Some v11
+          else raise Empty_pat
       | Some (vo11, None), None ->
         vo11
       | Some(None,None), Some v2

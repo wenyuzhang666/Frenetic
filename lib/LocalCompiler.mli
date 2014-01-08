@@ -13,6 +13,8 @@ module Action : sig
   val id : Set.t
   val drop : Set.t
   val group_to_netkat : group -> Types.policy
+
+  val apply : t -> Types.packet -> Types.packet
 end
 
 module Pattern : sig
@@ -29,6 +31,8 @@ module Pattern : sig
   val seq_act_pat : t -> Action.t -> t -> t option
   val set_to_netkat : Set.t -> Types.pred
   val to_netkat : t -> Types.pred
+
+  val matches_packet : Types.packet -> t -> bool
 end
   
 module Atom : sig

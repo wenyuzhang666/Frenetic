@@ -115,3 +115,16 @@ Executable netkat_test
     core,
     netcore,
     netcore.async
+
+Executable distfrenetic
+  Path: frenetic
+  CompiledObject: best
+  MainIs: DistributedCompiler.ml
+  Install: False
+  BuildDepends:
+    netcore,
+    core,
+    threads,
+    yojson,
+    async,
+    async_parallel

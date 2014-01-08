@@ -666,7 +666,7 @@ module Local = struct
       r  
 
   let par_local (p:t) (q:t) : t =
-    (* Printf.printf "### PAR [%d %d] ###\n%!" (Atom.Map.cardinal p) (Atom.Map.cardinal q); *)
+    (* Printf.printf "### PAR [%d %d] ###\n%!" (Atom.Map.length p) (Atom.Map.length q); *)
     let r = bin_local Action.group_crossproduct p q in
       (* Printf.printf *)
       (* 	"PAR_LOCAL\n%s\n%s\n%s\n\n%!" *)

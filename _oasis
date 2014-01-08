@@ -124,3 +124,16 @@ Document doc
     NetKAT_Types,
     NetKAT_Compiler,
     Controller
+
+Executable distfrenetic
+  Path: frenetic
+  CompiledObject: best
+  MainIs: DistributedCompiler.ml
+  Install: False
+  BuildDepends:
+    netcore,
+    core,
+    threads,
+    yojson,
+    async,
+    async_parallel

@@ -55,15 +55,6 @@ let cluster_map (lst : 'a list)
 let rec range (min : int) (max : int) : int list =
   if min = max then [max] else min :: range (min + 1) max
 
-let make_scheduler (workers : string list) =
-  let workers = Array.of_list workers in
-  let i = ref 0 in
-  let next () =
-    let r = workers.(!i) in
-    i := if !i = Array.length workers - 1 then 0 else !i + 1;
-    r in
-  `F next
-
 (* 
 
  An example configuration:
@@ -77,7 +68,6 @@ let make_scheduler (workers : string list) =
 type config = {
   workers: string list;   (* hostnames or IP addresses of worker machines  *)
 }
-
 
 let parse_config (filename : string) : config = 
   let json = Yojson.Basic.from_file filename in

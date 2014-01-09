@@ -224,8 +224,4 @@ let main () =
     | [_] -> Parallel.init ()
     | _ -> printf "Invalid argument. See source code for help.\n%!"
 
-let () = 
-  try main ()
-  with exn -> (
-    let _ = Core.Std.Sys.command "touch /home/arjun/exn" in
-  raise exn)
+let () = main ()

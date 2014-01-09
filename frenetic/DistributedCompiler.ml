@@ -3,6 +3,27 @@ open Async.Std
 open Async_parallel.Std
 
 module Types = NetKAT_Types
+(* 
+
+ An example configuration:
+
+{
+  workers: [ "10.152.136.136" ]
+}
+
+*)
+type config = {
+  workers: string list;   (* hostnames or IP addresses of worker machines  *)
+}
+
+let parse_config (filename : string) : config = 
+  let json = Yojson.Basic.from_file filename in
+  let open Yojson.Basic.Util in
+  let workers = json |> member "workers" |> to_list |> filter_string in
+  { workers }
+
+let rec range (min : int) (max : int) : int list =
+  if min = max then [max] else min :: range (min + 1) max
 
 let buffer_age_limit = `Unlimited
 
@@ -11,25 +32,24 @@ let p s = Printf.printf "%s:%s: %s\n%!" (Unix.gethostname ())
 
 exception Remote_exception of string * string
 
-let heap_stats () = 
-  let open Core.Std.Gc in
-  let n = allocated_bytes () /. 1024. /. 1024. in
-  sprintf "heap size = %f MB" n
-
 let measure_time label (f : unit -> 'a Deferred.t) : 'a Deferred.t =
   let start = Time.now () in
   f ()
   >>= fun r ->
   let end_ = Time.now () in
   let span = Time.diff end_ start  in
-  let s = heap_stats () in
-  p (sprintf "%s took %s; %s" label (Time.Span.to_string span) s);
+  let n = Core.Std.Gc.allocated_bytes () /. 1024. /. 1024. in
+  p (sprintf "%s took %s (%f MB)" label (Time.Span.to_string span) n);
   return r
 
 let cluster_map (lst : 'a list) 
-               ~(workers : string list) 
+                ~(per_worker : int)
+               ~(config : config) 
                ~(f : 'a -> 'b Deferred.t) : ('a, exn) Result.t list Deferred.t =
   let (workers_r, workers_w) = Pipe.create () in
+  let workers = List.concat_map (range 1 per_worker) 
+                  ~f:(fun _ -> config.workers) in
+  p (sprintf "running %d jobs in parallel" (List.length workers));
   List.iter workers ~f:(Pipe.write_without_pushback workers_w);
   let run_on_worker x =
     Pipe.read workers_r
@@ -52,29 +72,6 @@ let cluster_map (lst : 'a list)
        return r in
   Deferred.List.map ~how:`Parallel lst ~f:run_on_worker
 
-let rec range (min : int) (max : int) : int list =
-  if min = max then [max] else min :: range (min + 1) max
-
-(* 
-
- An example configuration:
-
-{
-  workers: [ "10.152.136.136" ]
-
-}
-
-*)
-type config = {
-  workers: string list;   (* hostnames or IP addresses of worker machines  *)
-}
-
-let parse_config (filename : string) : config = 
-  let json = Yojson.Basic.from_file filename in
-  let open Yojson.Basic.Util in
-  let workers = json |> member "workers" |> to_list |> filter_string in
-  { workers }
-
 (* Parses src and caches it to dump. It is up to you to "clear the cache"
    by deleting dump if you change src. *)
 let parse_caching (src : string) (dump : string) : Types.policy Deferred.t =
@@ -93,29 +90,6 @@ let parse_caching (src : string) (dump : string) : Types.policy Deferred.t =
          Pervasives.close_out out;
          pol)
 
-(* Run by the worker to return the digest of the local copy of the policy *)
-let dump_digest (expected_md5 : string) 
-                (dump : string) () : bool Deferred.t = 
-  try_with (fun () ->
-    In_thread.run (fun () -> Digest.file dump))
-  >>| function
-  | Ok md5 -> 
-     if md5 = expected_md5 then
-        (p "policy available"; true)
-      else
-       false
-  | Error _ -> false
-
-let run_dump_digest md5 dump worker =
-  Parallel.run ~buffer_age_limit  ~where:(`On worker) (dump_digest md5 dump)
-  >>= function
-  | Error exn ->
-    return (p (sprintf "could not get digest from %s" worker); None)
-  | Ok false ->
-    return (Some worker)
-  | Ok true ->
-    return None
-
 (* Runs on a worker to receive a policy and dump it to disk. *)
 let receive_policy (pol_file : string) (pol_data : string) () : unit Deferred.t = 
   Writer.with_file pol_file (fun w ->
@@ -128,7 +102,11 @@ let compile_in_process ~pol_dump ~sw =
     let tbl_m = In_thread.run (fun () -> 
       let pol = Marshal.from_channel (Pervasives.open_in pol_dump) in
       LocalCompiler.to_table (LocalCompiler.compile (VInt.Int64 (Int64.of_int sw)) pol)) in
-    Clock.every' ~stop:(tbl_m >>= fun _ -> return ()) (Time.Span.of_int_sec 5) (fun () -> p (heap_stats ()); return ());
+    Clock.every' ~stop:(tbl_m >>= fun _ -> return ()) (Time.Span.of_int_sec 30) 
+      (fun () ->
+         let n = Core.Std.Gc.allocated_bytes () /. 1024. /. 1024. in
+          p (sprintf "still running (%fMB heap)" n);
+          return ());
     tbl_m >>= fun tbl ->
     let n = List.length tbl in
     p (sprintf "finished compile ~sw:%d ~pol:_ (flow table has length %d)" sw n);
@@ -164,11 +142,12 @@ let rec reader config =
     match parsed_input with
     | [ "ship"; filename ] -> 
       ship config filename
-    | [ "compile"; filename; m; n ] ->
+    | [ "compile"; filename; per_worker; m; n ] ->
       ((try return (Some (Int.of_string m, Int.of_string n)) with _ -> return None)
        >>= function
        | None -> return ()
-       | Some (m, n) -> compile_all config filename m n)
+       | Some (m, n) -> 
+         compile_all config filename (Int.of_string per_worker) m n)
     | _ -> return ())
   >>= function
   | Ok () -> reader config
@@ -186,12 +165,12 @@ and ship config filename =
     >>= fun bin_data ->
     Deferred.List.iter ~how:`Parallel ~f:(ship_policy bin bin_data) config.workers)
 
-and compile_all config filename min_sw max_sw =
+and compile_all config filename (per_worker : int) min_sw max_sw =
   let bin = filename ^ ".bin" in
   let switches = range min_sw max_sw in
   measure_time "compilation"
     (fun () -> 
-       cluster_map switches ~workers:config.workers ~f:(fun sw -> compile ~pol_dump:bin ~sw))
+       cluster_map switches ~config ~per_worker ~f:(fun sw -> compile ~pol_dump:bin ~sw))
   >>= fun results ->
   let failures = List.filter_map results ~f:Result.error in
   List.iter failures ~f:(fun exn -> p (Exn.to_string exn));

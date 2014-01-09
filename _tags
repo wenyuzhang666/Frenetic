@@ -82,18 +82,18 @@
 <test/*.ml{,i}>: pkg_topology
 # Executable katnetic
 <frenetic/katnetic.{native,byte}>: use_netcore
-<frenetic/katnetic.{native,byte}>: package(lwt)
-<frenetic/katnetic.{native,byte}>: package(lwt.syntax)
-<frenetic/katnetic.{native,byte}>: package(packet)
-<frenetic/katnetic.{native,byte}>: package(cstruct)
-<frenetic/katnetic.{native,byte}>: package(dprle)
-<frenetic/katnetic.{native,byte}>: package(lwt.syntax.log)
-<frenetic/katnetic.{native,byte}>: package(lwt.unix)
-<frenetic/katnetic.{native,byte}>: package(str)
-<frenetic/katnetic.{native,byte}>: package(ocamlgraph)
-<frenetic/katnetic.{native,byte}>: package(openflow)
-<frenetic/katnetic.{native,byte}>: package(openflow.lwt)
-<frenetic/katnetic.{native,byte}>: package(topology)
+<frenetic/katnetic.{native,byte}>: pkg_lwt
+<frenetic/katnetic.{native,byte}>: pkg_lwt.syntax
+<frenetic/katnetic.{native,byte}>: pkg_packet
+<frenetic/katnetic.{native,byte}>: pkg_cstruct
+<frenetic/katnetic.{native,byte}>: pkg_dprle
+<frenetic/katnetic.{native,byte}>: pkg_lwt.syntax.log
+<frenetic/katnetic.{native,byte}>: pkg_lwt.unix
+<frenetic/katnetic.{native,byte}>: pkg_str
+<frenetic/katnetic.{native,byte}>: pkg_ocamlgraph
+<frenetic/katnetic.{native,byte}>: pkg_openflow
+<frenetic/katnetic.{native,byte}>: pkg_openflow.lwt
+<frenetic/katnetic.{native,byte}>: pkg_topology
 # Executable netkat_test
 "frenetic/netkat_test.byte": use_netcore
 "frenetic/netkat_test.byte": pkg_lwt

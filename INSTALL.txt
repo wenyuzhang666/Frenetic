@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: f51633e3a4a46eb8b27c4c826f45785d) *)
+(* DO NOT EDIT (digest: 4512f27114d9b97659a6b9c80a586723) *)
 This is the INSTALL file for the frenetic distribution.
 
 This package uses OASIS to generate its build system. See section OASIS for
@@ -13,8 +13,7 @@ In order to compile this package, you will need:
 * findlib
 * cstruct for library lwt, library netcore
 * dprle for library lwt, library netcore
-* core for library lwt, library netcore, executable distfrenetic,
-  executable disttest
+* core for library lwt, library netcore, executable distfrenetic
 * sexplib for library lwt, library netcore
 * lwt for library lwt, library netcore, executable katnetic,
   executable netkat_test
@@ -25,10 +24,9 @@ In order to compile this package, you will need:
 * quickcheck for library quickcheck, executable testtool
 * oUnit for executable testtool
 * pa_ounit for executable testtool
-* yojson for executable distfrenetic, executable disttest
-* async for executable distfrenetic, executable disttest
-* async_parallel for executable distfrenetic, executable disttest
-* cohttp for executable distfrenetic
+* yojson for executable distfrenetic
+* async for executable distfrenetic
+* async_parallel for executable distfrenetic
 
 Installing
 ==========

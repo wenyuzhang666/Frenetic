@@ -3,10 +3,6 @@ open Async.Std
 open Async_parallel.Std
 
 module Types = NetKAT_Types
-module Server = Cohttp_async.Server
-module Request = Cohttp.Request
-
-let listen_port = 8080
 
 let buffer_age_limit = `Unlimited
 
@@ -40,15 +36,13 @@ let cluster_map (lst : 'a list)
     >>= function
     | `Eof -> failwith "unexpected EOF from cluster_map worker pipe"
     | `Ok worker -> 
-       p (sprintf "Acquired %s" worker);
        try_with
          (fun () -> Parallel.run ~buffer_age_limit ~where:(`On worker) (fun () -> f x))
        >>= (function
        | Error exn -> 
          p (sprintf "Exception from %s: %s" worker (Exn.to_string exn));
          return (Error exn)
-       | Ok (Ok y) ->
-         p (sprintf "Received OK result from %s" worker);
+       | Ok (Ok y) -> 
          return (Ok y)
        | Ok (Error str) -> 
          p (sprintf "Remote exception from %s: %s" worker str);       
@@ -133,13 +127,11 @@ let run_dump_digest md5 dump worker =
     return None
 
 (* Runs on a worker to receive a policy and dump it to disk. *)
-let receive_policy (url : string) (pol_file : string) () : unit Deferred.t = 
-  let cmd = sprintf "wget -q -O %s %s" pol_file url in
-  p cmd;
-  Sys.command_exn cmd
-  >>= fun () ->
-  p "received policy";
-  return ()
+let receive_policy (pol_file : string) (pol_data : string) () : unit Deferred.t = 
+  Writer.with_file pol_file (fun w ->
+    Writer.write w pol_data;
+    p "received policy";
+    return ())
 
 let compile_in_process ~pol_dump ~sw =
   p (sprintf "starting compile ~sw:%d ~pol:_" sw);
@@ -155,25 +147,13 @@ let compile_in_process ~pol_dump ~sw =
 let compile ~pol_dump ~sw = 
   measure_time (sprintf "compile ~sw:%d" sw) (fun () ->
     compile_in_process ~pol_dump ~sw)
-(*   Parallel.run ~buffer_age_limit  ~where:`Local
-  (fun () -> compile_in_process ~pol_dump ~sw)
-  >>= function
-  | Ok n -> return n
-  | Error exn ->
-    p (sprintf "exception by local process: %s" exn);
-    return 0)
- *)
-let serve_file filename ~(body : string Pipe.Reader.t option)
-                  (client_addr : Socket.Address.Inet.t)
-                  (request : Request.t) = 
-  Server.respond_with_file ~flush:true filename
 
-let rec ship_policy (pol_file : string) 
+let rec ship_policy (pol_file : string)
+                    (pol_data : string) 
                     (worker : string) : unit Deferred.t =
   p (sprintf "Sending policy to %s" worker);
   try_with (fun () ->
-    let url = sprintf "http://%s:%d/" (Unix.gethostname ()) listen_port in
-    Parallel.run ~buffer_age_limit  ~where:(`On worker) (receive_policy url pol_file)
+    Parallel.run ~buffer_age_limit  ~where:(`On worker) (receive_policy pol_file pol_data)
     >>= function
     | Ok r -> p (sprintf "ship_policy to %s succeeded" worker); return ()
     | Error e -> p (sprintf "ship_policy to %s died with %s" worker e); return ())
@@ -212,11 +192,9 @@ and ship config filename =
     let bin = filename ^ ".bin" in
     parse_caching src bin 
     >>= fun _ ->
-    Server.create (Tcp.on_port listen_port) (serve_file bin)
-    >>= fun listener ->
-    Deferred.List.iter ~how:`Parallel ~f:(ship_policy bin) config.workers
-    >>= fun () ->
-    Server.close listener)
+    Reader.file_contents bin
+    >>= fun bin_data ->
+    Deferred.List.iter ~how:`Parallel ~f:(ship_policy bin bin_data) config.workers)
 
 and compile_all config filename min_sw max_sw =
   let bin = filename ^ ".bin" in

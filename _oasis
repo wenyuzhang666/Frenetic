@@ -131,6 +131,4 @@ Executable distfrenetic
     threads,
     yojson,
     async,
-    async_parallel,
-    cohttp,
-    cohttp.async
+    async_parallel

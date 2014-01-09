@@ -18,6 +18,10 @@ Flag async
     Description: build the netcore.async library
     Default: false
 
+Flag lwt
+  Description: build things that rely on lwt
+  Default: False
+
 Library netcore
   Path: lib
   BuildDepends:
@@ -127,4 +131,6 @@ Executable distfrenetic
     threads,
     yojson,
     async,
-    async_parallel
+    async_parallel,
+    cohttp,
+    cohttp.async

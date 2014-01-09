@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 0522b461fb3ba2b99b086332f6ff9c22) *)
+(* DO NOT EDIT (digest: f51633e3a4a46eb8b27c4c826f45785d) *)
 This is the INSTALL file for the frenetic distribution.
 
 This package uses OASIS to generate its build system. See section OASIS for
@@ -9,23 +9,26 @@ Dependencies
 ============
 
 In order to compile this package, you will need:
-* ocaml (>= 4.01.0) for all, test all_tests, doc doc
+* ocaml (>= 4.01.0) for all, test all_tests
 * findlib
-* cstruct for library netcore
-* dprle for library netcore
-* core for library netcore, executable distfrenetic
-* sexplib for library netcore
-* lwt for library netcore, executable katnetic, executable netkat_test
-* ocamlgraph for library netcore
-* openflow for library netcore
-* packet for library netcore, executable testtool
-* topology for library netcore
+* cstruct for library lwt, library netcore
+* dprle for library lwt, library netcore
+* core for library lwt, library netcore, executable distfrenetic,
+  executable disttest
+* sexplib for library lwt, library netcore
+* lwt for library lwt, library netcore, executable katnetic,
+  executable netkat_test
+* ocamlgraph for library lwt, library netcore
+* openflow for library lwt, library netcore
+* packet for library lwt, library netcore, executable testtool
+* topology for library lwt, library netcore
 * quickcheck for library quickcheck, executable testtool
 * oUnit for executable testtool
 * pa_ounit for executable testtool
-* yojson for executable distfrenetic
-* async for executable distfrenetic
-* async_parallel for executable distfrenetic
+* yojson for executable distfrenetic, executable disttest
+* async for executable distfrenetic, executable disttest
+* async_parallel for executable distfrenetic, executable disttest
+* cohttp for executable distfrenetic
 
 Installing
 ==========

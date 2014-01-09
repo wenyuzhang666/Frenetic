@@ -3,6 +3,10 @@ open Async.Std
 open Async_parallel.Std
 
 module Types = NetKAT_Types
+module Server = Cohttp_async.Server
+module Request = Cohttp.Request
+
+let listen_port = 8080
 
 let buffer_age_limit = `Unlimited
 
@@ -13,9 +17,7 @@ exception Remote_exception of string * string
 
 let heap_stats () = 
   let open Core.Std.Gc in
-  let open Core.Std.Gc.Stat in
-  let s = quick_stat () in
-  let n = 8. *. (s.minor_words +. s.major_words -. s.promoted_words) /. 1024. /. 1024. in
+  let n = allocated_bytes () /. 1024. /. 1024. in
   sprintf "heap size = %f MB" n
 
 let measure_time label (f : unit -> 'a Deferred.t) : 'a Deferred.t =
@@ -131,35 +133,47 @@ let run_dump_digest md5 dump worker =
     return None
 
 (* Runs on a worker to receive a policy and dump it to disk. *)
-let receive_policy (pol : string) (dump_file : string) () : unit Deferred.t = 
-  Writer.with_file dump_file
-    ~f:(fun r -> Writer.write r pol;
-                 p "received policy";
-                 return ())
+let receive_policy (url : string) (pol_file : string) () : unit Deferred.t = 
+  let cmd = sprintf "wget -q -O %s %s" pol_file url in
+  p cmd;
+  Sys.command_exn cmd
+  >>= fun () ->
+  p "received policy";
+  return ()
+
+let compile_in_process ~pol_dump ~sw =
+  p (sprintf "starting compile ~sw:%d ~pol:_" sw);
+    let tbl_m = In_thread.run (fun () -> 
+      let pol = Marshal.from_channel (Pervasives.open_in pol_dump) in
+      LocalCompiler.to_table (LocalCompiler.compile (VInt.Int64 (Int64.of_int sw)) pol)) in
+    Clock.every' ~stop:(tbl_m >>= fun _ -> return ()) (Time.Span.of_int_sec 5) (fun () -> p (heap_stats ()); return ());
+    tbl_m >>= fun tbl ->
+    let n = List.length tbl in
+    p (sprintf "finished compile ~sw:%d ~pol:_ (flow table has length %d)" sw n);
+    return n
 
 let compile ~pol_dump ~sw = 
   measure_time (sprintf "compile ~sw:%d" sw) (fun () ->
-  Parallel.run ~buffer_age_limit  ~where:`Local
-  (fun () ->
-    p (sprintf "starting compile ~sw:%d ~pol:_" sw);
-    In_thread.run (fun () -> 
-      let pol = Marshal.from_channel (Pervasives.open_in pol_dump) in
-      LocalCompiler.to_table (LocalCompiler.compile (VInt.Int64 (Int64.of_int sw)) pol))
-    >>= fun tbl ->
-    let n = List.length tbl in
-    p (sprintf "finished compile ~sw:%d ~pol:_ (flow table has length %d)" sw n);
-    return n)
+    compile_in_process ~pol_dump ~sw)
+(*   Parallel.run ~buffer_age_limit  ~where:`Local
+  (fun () -> compile_in_process ~pol_dump ~sw)
   >>= function
   | Ok n -> return n
   | Error exn ->
     p (sprintf "exception by local process: %s" exn);
     return 0)
+ *)
+let serve_file filename ~(body : string Pipe.Reader.t option)
+                  (client_addr : Socket.Address.Inet.t)
+                  (request : Request.t) = 
+  Server.respond_with_file ~flush:true filename
 
-let rec ship_policy (pol_dump : string) (dump : string) 
+let rec ship_policy (pol_file : string) 
                     (worker : string) : unit Deferred.t =
   p (sprintf "Sending policy to %s" worker);
   try_with (fun () ->
-    Parallel.run ~buffer_age_limit  ~where:(`On worker) (receive_policy pol_dump dump)
+    let url = sprintf "http://%s:%d/" (Unix.gethostname ()) listen_port in
+    Parallel.run ~buffer_age_limit  ~where:(`On worker) (receive_policy url pol_file)
     >>= function
     | Ok r -> p (sprintf "ship_policy to %s succeeded" worker); return ()
     | Error e -> p (sprintf "ship_policy to %s died with %s" worker e); return ())
@@ -198,9 +212,11 @@ and ship config filename =
     let bin = filename ^ ".bin" in
     parse_caching src bin 
     >>= fun _ ->
-    Reader.file_contents bin
-    >>= fun bin_pol ->
-    Deferred.List.iter ~how:`Parallel ~f:(ship_policy bin_pol bin) config.workers)
+    Server.create (Tcp.on_port listen_port) (serve_file bin)
+    >>= fun listener ->
+    Deferred.List.iter ~how:`Parallel ~f:(ship_policy bin) config.workers
+    >>= fun () ->
+    Server.close listener)
 
 and compile_all config filename min_sw max_sw =
   let bin = filename ^ ".bin" in
@@ -216,6 +232,10 @@ and compile_all config filename min_sw max_sw =
 
 let main () = 
   match Array.to_list Sys.argv with
+    | [_; "local"; pol_dump; n] ->
+      let sw = Int.of_string n in
+      let _ = compile_in_process ~pol_dump ~sw in
+      never_returns (Scheduler.go ())
     | [_; "master"; filename ] ->
       let config = parse_config filename in
       Parallel.init ~cluster: { Cluster.master_machine = Unix.gethostname();
@@ -226,4 +246,8 @@ let main () =
     | [_] -> Parallel.init ()
     | _ -> printf "Invalid argument. See source code for help.\n%!"
 
-let () = Exn.handle_uncaught ~exit:true main
+let () = 
+  try main ()
+  with exn -> (
+    let _ = Core.Std.Sys.command "touch /home/arjun/exn" in
+  raise exn)

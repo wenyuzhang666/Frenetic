@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 91c97d7cb3e5350376b4965117eac849)
+# DO NOT EDIT (digest: dbcf858d8a25e06ff7dc3bfe9852dc78)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -137,6 +137,8 @@
 <frenetic/DistributedCompiler.{native,byte}>: package(yojson)
 <frenetic/DistributedCompiler.{native,byte}>: package(async)
 <frenetic/DistributedCompiler.{native,byte}>: package(async_parallel)
+<frenetic/DistributedCompiler.{native,byte}>: package(cohttp)
+<frenetic/DistributedCompiler.{native,byte}>: package(cohttp.async)
 <frenetic/DistributedCompiler.{native,byte}>: package(packet)
 <frenetic/DistributedCompiler.{native,byte}>: package(cstruct)
 <frenetic/DistributedCompiler.{native,byte}>: package(dprle)
@@ -152,6 +154,8 @@
 <frenetic/*.ml{,i}>: package(yojson)
 <frenetic/*.ml{,i}>: package(async)
 <frenetic/*.ml{,i}>: package(async_parallel)
+<frenetic/*.ml{,i}>: package(cohttp)
+<frenetic/*.ml{,i}>: package(cohttp.async)
 <frenetic/*.ml{,i}>: package(packet)
 <frenetic/*.ml{,i}>: package(cstruct)
 <frenetic/*.ml{,i}>: package(dprle)

@@ -422,43 +422,22 @@ module Atom = struct
     (* "smart" constructor *)
   let mk ((xs,x):t) : t option =
     (* TODO(jnf): replace this *)
-    let hack x xi = 
-      let rec loop x xi k = 
-        match x,xi with 
-          | [],_ -> k xi
-          | _,[] -> k []
-        | (f1,v1)::x2, (f2,v2)::xi2 -> 
-          let n = Pervasives.compare f1 f2 in 
-          if n = 0 then 
-            if v1 = v2 then 
-              loop x2 xi2 k 
-            else 
-              loop x2 xi2 (fun l -> k ((f2,v2)::l))
-          else if n < 0 then 
-            loop x xi2 k 
-          else (* n > 0 *)
-            loop x2 xi k in 
-      loop x xi (fun x -> x) in 
     try
       let xs' =
-	Pattern.Set.fold xs ~init:Pattern.Set.empty
+	Pattern.Set.fold xs 
+          ~init:Pattern.Set.empty
 	  ~f:(fun acc xi ->
-                let xi' = hack x xi in  
-	        match Pattern.seq_pat x xi' with
-	          | None ->
-		    acc
-	          | Some x_xi ->
-		    if Pattern.compare x x_xi = 0 then
-		      raise Empty_atom
-		    else if 
-		        Pattern.Set.exists xs
-		          ~f:(fun xj -> 
-                            Pattern.compare xi' xj <> 0 &&
-			    Pattern.subseteq_pat xi' xj) 
-		    then 
-		      acc
-		    else
-		      Pattern.Set.add acc xi') in 
+	    if Pattern.subseteq_pat x xi then 
+	      raise Empty_atom
+	    else if 
+		Pattern.Set.exists xs
+		  ~f:(fun xj -> 
+                    Pattern.compare xi xj <> 0 &&
+		      Pattern.subseteq_pat xi xj) 
+	    then 
+	      acc
+	    else
+	      Pattern.Set.add acc xi) in 
       Some (xs',x)
     with Empty_atom ->
       None
@@ -471,19 +450,25 @@ module Atom = struct
         None
 
   let seq_act_atom ((xs1,x1):t) (a:Action.t) ((xs2,x2):t) : t option =
-    match Pattern.seq_act_pat x1 a x2 with
+    let r = match Pattern.seq_act_pat x1 a x2 with
       | Some x1ax2 ->
         let xs =
-          Pattern.Set.fold xs2 ~init:xs1
+          Pattern.Set.fold xs2 
+            ~init:xs1
             ~f:(fun acc xs2i ->
               match Pattern.seq_act_pat Pattern.tru a xs2i with
                 | Some truaxs2i ->
                   Pattern.Set.add acc truaxs2i
                 | None ->
                   acc) in 
-        mk (xs, x1ax2)
+        mk (xs, x1ax2)  
       | None ->
-        None
+        None in 
+    (* Printf.printf "SEQ_ACT_ATOM\nR1=%s\nR2=%s\nR=%s\n\n" *)
+    (*   (to_string (xs1,x1)) *)
+    (*   (to_string (xs2,x2)) *)
+    (*   (match r with | None -> "None" | Some r -> to_string r); *)
+    r
 
   let diff_atom ((xs1,x1):t) ((xs2,x2):t) : Set.t =
     let acc0 =
@@ -674,7 +659,7 @@ module Local = struct
     r  
 
   let choice_local (p:t) (q:t) : t =
-    (* Printf.printf "### CHOICE [%d %d] ###\n%!" (Atom.Map.cardinal p) (Atom.Map.cardinal q); *)
+    (* Printf.printf "### CHOICE [%d %d] ###\n%!" (Atom.Map.length p) (Atom.Map.length q); *)
     let r = bin_local Action.group_union p q in
       (* Printf.printf *)
       (* 	"CHOICE_LOCAL\n%s\n%s\n%s\n\n%!" *)

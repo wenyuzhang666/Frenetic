@@ -127,8 +127,10 @@ let format_policy = Formatting.pol Formatting.PAREN
 let format_pred = Formatting.pred Formatting.PAREN_PR
   
 let format_header = Formatting.format_header
+
+let string_of_field = Util.make_string_of Formatting.format_field
   
- let header_to_string = Util.make_string_of Formatting.format_header
+let header_to_string = Util.make_string_of Formatting.format_header
   
 let value_to_string = Util.make_string_of Formatting.format_value
   

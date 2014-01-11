@@ -16,7 +16,7 @@ let help args =
 	"  dump   Compile and dump flow table"
 
 module Run = struct
-  open LocalCompiler.RunTime
+  open LocalCompiler
 
   let with_channel f chan =
     let exp = Parser.program Lexer.token (Lexing.from_channel chan) in
@@ -47,7 +47,7 @@ module Run = struct
 end
 
 module Dump = struct
-  open LocalCompiler.RunTime
+  open LocalCompiler
 
   let with_channel f chan =
     f (Parser.program Lexer.token (Lexing.from_channel chan))
@@ -156,6 +156,11 @@ module Dump = struct
       | _ -> help [ "dump" ]
 
 end
+
+let () = 
+  Gc.set { (Gc.get()) with
+    Gc.minor_heap_size = 4 * 1024 * 1024; 
+    Gc.major_heap_increment = 32 * 1024 * 1024 }
 
 let () = 
   match Array.to_list Sys.argv with

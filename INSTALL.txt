@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 61a4600fe2d61b70f6788b32c7313b3c) *)
+(* DO NOT EDIT (digest: 6d38cf2e016ac48bc7de2a544c95e653) *)
 This is the INSTALL file for the frenetic distribution.
 
 This package uses OASIS to generate its build system. See section OASIS for
@@ -13,6 +13,8 @@ In order to compile this package, you will need:
 * findlib
 * cstruct for library netcore
 * dprle for library netcore
+* core for library netcore, executable distfrenetic
+* sexplib for library netcore
 * lwt for library netcore, executable katnetic, executable netkat_test
 * ocamlgraph for library netcore
 * openflow for library netcore
@@ -21,6 +23,9 @@ In order to compile this package, you will need:
 * quickcheck for library quickcheck, executable testtool
 * oUnit for executable testtool
 * pa_ounit for executable testtool
+* yojson for executable distfrenetic
+* async for executable distfrenetic
+* async_parallel for executable distfrenetic
 
 Installing
 ==========

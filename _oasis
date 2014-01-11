@@ -27,6 +27,9 @@ Library netcore
   BuildDepends:
     cstruct,
     dprle,
+    core,
+    sexplib,
+    sexplib.syntax,
     lwt,
     lwt.syntax,
     lwt.syntax.log,
@@ -35,6 +38,7 @@ Library netcore
     ocamlgraph,
     openflow,
     openflow.lwt,
+    threads,
     packet,
     topology
   InternalModules:
@@ -77,15 +81,15 @@ Executable testtool
   Install: False
 
 Test all_tests
-  Command: $testtool inline-test-runner dummy
+  Command: $testtool inline-test-runner netkat
   Run$: flag(tests)
   TestTools: testtool
 
 Executable katnetic
   Path: frenetic
+  CompiledObject: best
   MainIs: katnetic.ml
   Install$: flag(installexec)
-  CompiledObject: best
   BuildDepends:
     lwt,
     lwt.syntax,
@@ -120,3 +124,16 @@ Document doc
     NetKAT_Types,
     NetKAT_Compiler,
     Controller
+
+Executable distfrenetic
+  Path: frenetic
+  CompiledObject: best
+  MainIs: DistributedCompiler.ml
+  Install: False
+  BuildDepends:
+    netcore,
+    core,
+    threads,
+    yojson,
+    async,
+    async_parallel

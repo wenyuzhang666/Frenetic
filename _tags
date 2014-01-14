@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 3068f7ebbacda6b54aaa438a62410a81)
+# DO NOT EDIT (digest: 0c5fb28fb1c1d223975619c49b74df51)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -104,17 +104,6 @@
 <frenetic/katnetic.{native,byte}>: package(sexplib)
 <frenetic/katnetic.{native,byte}>: package(sexplib.syntax)
 <frenetic/katnetic.{native,byte}>: package(str)
-# Executable dehop_test
-"frenetic/dehop_test.byte": use_netcore
-"frenetic/dehop_test.byte": package(packet)
-"frenetic/dehop_test.byte": package(cstruct)
-"frenetic/dehop_test.byte": package(dprle)
-"frenetic/dehop_test.byte": package(ocamlgraph)
-"frenetic/dehop_test.byte": package(openflow)
-"frenetic/dehop_test.byte": package(topology)
-"frenetic/dehop_test.byte": package(sexplib)
-"frenetic/dehop_test.byte": package(sexplib.syntax)
-"frenetic/dehop_test.byte": package(str)
 # Executable netkat_test
 "frenetic/netkat_test.byte": use_async
 "frenetic/netkat_test.byte": use_netcore

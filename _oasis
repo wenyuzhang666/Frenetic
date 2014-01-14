@@ -113,13 +113,6 @@ Executable katnetic
     netcore,
     netcore.async
 
-Executable dehop_test
-  Path: frenetic
-  MainIs: dehop_test.ml
-  Install$: flag(installexec)
-  BuildDepends:
-    netcore
-
 Executable netkat_test
   Path: frenetic
   MainIs: netkat_test.ml

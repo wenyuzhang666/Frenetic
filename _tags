@@ -169,5 +169,6 @@
 <frenetic/*.ml{,i}>: package(sexplib.syntax)
 <frenetic/*.ml{,i}>: package(str)
 # OASIS_STOP
+<lib/*.ml>: syntax_camlp4o
 <test/*.ml>: syntax_camlp4o
 true: thread

@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: b0f3835601afe91d7259e0d9c91b5354) *)
+(* DO NOT EDIT (digest: 74b82ffec2a17f3b0691d227ada14b74) *)
 This is the INSTALL file for the frenetic distribution.
 
 This package uses OASIS to generate its build system. See section OASIS for
@@ -17,12 +17,12 @@ In order to compile this package, you will need:
 * openflow for library async, library netcore
 * packet for library async, library netcore, executable testtool
 * topology for library async, library netcore
+* sexplib for library async, library netcore
 * async for library async, executable distfrenetic, executable katnetic,
   executable netkat_test
 * core for library async, executable distfrenetic, executable katnetic,
   executable netkat_test
 * textutils for library async
-* sexplib for library async
 * quickcheck for library quickcheck, executable testtool
 * oUnit for executable testtool
 * pa_ounit for executable testtool

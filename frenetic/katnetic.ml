@@ -20,7 +20,8 @@ module Run = struct
 
   let with_channel f chan =
     let exp = Parser.program Lexer.token (Lexing.from_channel chan) in
-    Lwt_main.run (Controller.start f 6633 (NetKAT_Stream.constant exp))
+    let _ = Async_Controller.start_static f 6633 exp in
+    Core.Std.never_returns (Async.Std.Scheduler.go ())
 
   let with_file f filename =
     with_channel f (open_in filename)

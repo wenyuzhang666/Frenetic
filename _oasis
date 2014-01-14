@@ -63,7 +63,8 @@ Library async
     topology,
     sexplib.syntax
   Modules:
-    Async_Controller
+    Async_Controller,
+    Async_Reactive
 
 Library quickcheck
   Findlibparent: netcore
@@ -99,6 +100,16 @@ Executable katnetic
   MainIs: katnetic.ml
   Build$: flag(async)
   Install: false
+  BuildDepends:
+    async,
+    core,
+    netcore,
+    netcore.async
+
+Executable reactive
+  Path: frenetic
+  MainIs: reactive.ml
+  Install$: flag(installexec)
   BuildDepends:
     async,
     core,

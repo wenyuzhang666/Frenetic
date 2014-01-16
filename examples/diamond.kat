@@ -1,12 +1,18 @@
-((
-(filter switch = 1; filter ethDst = 00:00:00:00:00:02; (port := 1 | port := 2)) |
-(filter switch = 2; filter ethDst = 00:00:00:00:00:02; port := 2) |
-(filter switch = 3; filter ethDst = 00:00:00:00:00:02; port := 2)
-);
-(
-1@1 => 2@1 |
-1@2 => 3@1 |
-2@2 => 4@1 |
-3@2 => 4@2
-))*;
-(filter ethDst = 00:00:00:00:00:02; port := 3; 4@3 => 0@2)
+(* This policy works for
+
+  sudo mn  --controller=remote --topo=tree,2,2 --mac 
+
+  pingall should succeed
+*)
+
+filter ethTyp=0x806;
+  (filter switch=1; filter port=1; (port:=2 + port:=3) |
+   filter switch=1; filter not (port=1); port := 1 |
+   filter switch=3; filter port=1; (port:=2 + port:=3) |
+   filter switch=3; filter not (port=1); port := 1) |
+(* Forward when hosts are directly connected. *)
+filter (switch=1 and ethDst=1); port := 1 |
+filter (switch=3 and ethDst=2); port := 1  |
+filter (switch=2 or switch=4); (filter port=1; port:=2 | filter port=2; port:= 1) |
+filter switch=1; filter (not ethDst=1); port := 2 |
+filter switch=3; filter (not ethDst=2); port := 3

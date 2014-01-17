@@ -126,12 +126,12 @@ let start ~f ~port ~init_pol ~pols =
   Controller.create ~port () >>= function t ->
   Log.info "Listening for switches";
   let evts = T.run Controller.features t (Controller.listen t) in
-  let state = { (State.create (f init_pol)) with
+  let init_state = { (State.create (f init_pol)) with
     State.e = Some(choose_event t evts);
     State.p = Some(choose_policy t pols)
   } in
 
-  Deferred.forever state (fun s ->
+  Deferred.forever init_state (fun s ->
     Deferred.choose (filter_map (fun e -> e) [ s.State.e ; s.State.p ])
     >>= function
       | `Event Some(evt) ->
@@ -171,9 +171,9 @@ let start ~f ~port ~init_pol ~pols =
           State.p = Some(choose_policy t pols)
         }
       | `Event None ->
-        return { state with e = None }
+        return { s with State.e = None }
       | `Policy None ->
-        return { state with p = None });
+        return { s with State.p = None });
     Deferred.unit
 
 let start_static ~f ~port ~pol : unit Deferred.t =

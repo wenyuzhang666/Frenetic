@@ -80,7 +80,7 @@ module State = struct
 
   type ('e, 'p) t = {
     local : VInt.t -> SDN_Types.flowTable;
-    sws : (Int64.t * PortSet.t) SwitchMap.t;
+    sws : (VInt.t * PortSet.t) SwitchMap.t;
     e : 'e Deferred.choice option;
     p : 'p Deferred.choice option
   }
@@ -94,7 +94,7 @@ module State = struct
 
   let add_switch s ~c_id ~feats =
     let open OF0x01 in
-    let sw_id = feats.SwitchFeatures.switch_id in
+    let sw_id = VInt.Int64 feats.SwitchFeatures.switch_id in
     let ports = PortSet.of_list
       (List.filter_map feats.SwitchFeatures.ports ~f:(fun p ->
         if PortDescription.(p.config.PortConfig.down)
@@ -138,7 +138,7 @@ let start ~f ~port ~init_pol ~pols =
         begin match evt with
           | `Connect(c_id, feats) ->
             let s', (sw_id, ports) = State.add_switch s c_id feats in
-            let local_pol = s.State.local (VInt.Int64 sw_id) in
+            let local_pol = s.State.local sw_id in
             Deferred.all (to_messages local_pol ports ~f:(Controller.send t c_id))
             >>| fun _ -> { s' with
               State.e = Some(choose_event t evts)
@@ -163,7 +163,7 @@ let start ~f ~port ~init_pol ~pols =
         let local = f new_pol in
         let next ~key ~data =
           let sw_id, ports = data in
-          Deferred.all (to_messages (local (VInt.Int64 sw_id)) ports ~f:(Controller.send t key))
+          Deferred.all (to_messages (local sw_id) ports ~f:(Controller.send t key))
           >>| (fun _ -> ()) in
         Deferred.Map.iter s.State.sws ~f:next
         >>= fun _ -> return { s with

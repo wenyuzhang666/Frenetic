@@ -107,18 +107,18 @@ module State = struct
     { s with sws = SwitchMap.remove s.sws c_id }
 
   let add_port s ~c_id ~desc =
-    { s with
-      sws = let (sw_id, ports) = SwitchMap.find_exn s.sws c_id in
-        SwitchMap.add s.sws ~key:c_id ~data:(sw_id, PortSet.add ports
-          (VInt.Int16(OF0x01.PortDescription.(desc.port_no))))
-    }
+    let sw_id, ports = SwitchMap.find_exn s.sws c_id in
+    let ports' = PortSet.add ports
+      (VInt.Int16(OF0x01.PortDescription.(desc.port_no))) in
+    ({ s with sws = SwitchMap.add s.sws ~key:c_id ~data:(sw_id, ports') },
+     (sw_id, ports'))
 
   let remove_port s ~c_id ~desc =
-    { s with
-      sws = let (sw_id, ports) = SwitchMap.find_exn s.sws c_id in
-        SwitchMap.add s.sws ~key:c_id ~data:(sw_id, PortSet.remove ports
-          (VInt.Int16(OF0x01.PortDescription.(desc.port_no))))
-    }
+    let (sw_id, ports) = SwitchMap.find_exn s.sws c_id in
+    let ports' = PortSet.remove ports
+      (VInt.Int16(OF0x01.PortDescription.(desc.port_no))) in
+    ({ s with sws = SwitchMap.add s.sws ~key:c_id ~data:(sw_id, ports') },
+     (sw_id, ports'))
 
 end
 
@@ -150,9 +150,15 @@ let start ~f ~port ~init_pol ~pols =
             let open OF0x01.PortStatus in
             begin match msg with
               | _, PortStatusMsg { reason = ChangeReason.Add; desc } ->
-                return (State.add_port s c_id desc)
+                let s', (sw_id, ports) = State.add_port s c_id desc in
+                let local_pol = s'.State.local sw_id in
+                Deferred.all (to_messages local_pol ports ~f:(Controller.send t c_id))
+                >>| (fun _ -> s')
               | _, PortStatusMsg { reason = ChangeReason.Delete; desc } ->
-                return (State.remove_port s c_id desc)
+                let s', (sw_id, ports) = State.remove_port s c_id desc in
+                let local_pol = s'.State.local sw_id in
+                Deferred.all (to_messages local_pol ports ~f:(Controller.send t c_id))
+                >>| (fun _ -> s')
               | _, PortStatusMsg { reason = ChangeReason.Modify }
               | _ ->
                 Log.info "Dropped message: %s" (M.to_string msg);

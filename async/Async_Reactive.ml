@@ -32,17 +32,29 @@ let filter_map ~f xs =
         end in
   loop [] xs
 
-let pick_group ports (par : SDN.par) =
+let pick_group ports =
   let f (a : SDN.action) =
     match a with
-      | SDN.SetField (SDN.InPort, p) ->
+      | SDN.SetField (SDN.InPort, p)
+      | SDN.OutputPort p
+      | SDN.Enqueue (p, _) ->
         PortSet.mem ports p
-      | _ -> false in
-  if List.exists par ~f:(List.exists ~f:f) then
-    Some(par)
-  else
-    None
-
+      | _ -> true in
+  fun par ->
+    (* XXX(seliopou): This more or less assumes that there is no parallel
+     * composition in the action. If there is a parallel composition, then this
+     * would have to turn into a filter_map. In that situation efficiently
+     * swapping out flowtables (i.e., not just blowing away the table) when
+     * ports go down would be much more algorithmically complicated. You would
+     * have to keep track of all the rules that should be installed given all
+     * the potential subset of active ports involved in the rule.
+     *
+     * I think.
+     * *)
+    if List.for_all par ~f:(List.for_all ~f:f) then
+      Some(par)
+    else
+      None
 let failover flow (ports : PortSet.t) : SDN.flow option =
   match filter_map (pick_group ports) flow.SDN.action with
     | [] -> None

@@ -19,7 +19,10 @@ let _ = Log.set_output
           [Log.make_colored_filtered_output
              [("openflow", "socket");
               ("openflow", "platform");
-              ("openflow", "serialization")]]
+              ("openflow", "serialization");
+              ("openflow", "reactive")]]
+
+let tags = [("openflow", "reactive")]
 
 let pick_group ports =
   let f (a : SDN.action) =
@@ -102,6 +105,14 @@ module State = struct
         if PortDescription.(p.config.PortConfig.down)
           then None
           else Some(VInt.Int16(p.PortDescription.port_no)))) in
+    Log.info ~tags:tags "switch %s - connected%!"
+      (VInt.get_string sw_id);
+    Log.info ~tags:tags "switch %s - ports: %s%!"
+      (VInt.get_string sw_id)
+      (PortSet.fold ports ~init:"" ~f:(fun acc e ->
+        Printf.sprintf "%s%s"
+        (VInt.get_string e)
+        (if acc = "" then "" else ", " ^ acc)));
     ({ s with sws = SwitchMap.add s.sws ~key:c_id ~data:(sw_id, ports) },
      (sw_id, ports))
 
@@ -141,6 +152,8 @@ let start ~f ~port ~init_pol ~pols =
           | `Connect(c_id, feats) ->
             let s', (sw_id, ports) = State.add_switch s c_id feats in
             let local_pol = s.State.local sw_id in
+            Log.info ~tags:tags "switch %s - initializing%!"
+              (VInt.get_string sw_id);
             Deferred.all (to_messages local_pol ports ~f:(Controller.send t c_id))
             >>| fun _ -> { s' with
               State.e = Some(choose_event t evts)

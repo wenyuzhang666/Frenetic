@@ -21,17 +21,6 @@ let _ = Log.set_output
               ("openflow", "platform");
               ("openflow", "serialization")]]
 
-let filter_map ~f xs =
-  let rec loop rs xs =
-    match xs with
-      | [] -> rs
-      | x::xs' ->
-        begin match f x with
-          | None -> loop rs xs'
-          | Some(r) -> loop (r::rs) xs'
-        end in
-  loop [] xs
-
 let pick_group ports =
   let f (a : SDN.action) =
     match a with
@@ -55,8 +44,9 @@ let pick_group ports =
       Some(par)
     else
       None
+
 let failover flow (ports : PortSet.t) : SDN.flow option =
-  match filter_map (pick_group ports) flow.SDN.action with
+  match List.filter_map flow.SDN.action ~f:(pick_group ports) with
     | [] -> None
     | g::gs -> Some({ flow with SDN.action = [g] })
 
@@ -144,7 +134,7 @@ let start ~f ~port ~init_pol ~pols =
   } in
 
   Deferred.forever init_state (fun s ->
-    Deferred.choose (filter_map (fun e -> e) [ s.State.e ; s.State.p ])
+    Deferred.choose (List.filter_map ~f:(fun e -> e) [ s.State.e ; s.State.p ])
     >>= function
       | `Event Some(evt) ->
         begin match evt with

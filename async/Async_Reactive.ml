@@ -185,7 +185,7 @@ let start ~f ~port ~init_pol ~pols =
               | _ ->
                 Log.info "Dropped message: %s" (M.to_string msg);
                 return s
-            end
+            end >>| fun s -> { s with State.e = Some(choose_event t evts) }
         end
       | `Policy Some(new_pol) ->
         let local = f new_pol in

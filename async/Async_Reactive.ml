@@ -168,20 +168,24 @@ let start ~f ~port ~init_pol ~pols =
           | `Disconnect(c_id, _) ->
             return (State.remove_switch s c_id)
           | `Message(c_id, msg) ->
-            let open OF0x01.Message in
-            let open OF0x01.PortStatus in
+            let open OF0x01 in
+            let open Message in
+            let open PortStatus in
             begin match msg with
-              | _, PortStatusMsg { reason = ChangeReason.Add; desc } ->
+              (* | _, PortStatusMsg { reason = ChangeReason.Add; desc } *)
+              | _, PortStatusMsg { reason = ChangeReason.Modify; desc }
+                  when not PortDescription.(desc.state.PortState.down) ->
                 let s', (sw_id, ports) = State.add_port s c_id desc in
                 let local_pol = s'.State.local sw_id in
                 Deferred.all (to_messages local_pol ports ~f:(Controller.send t c_id))
                 >>| (fun _ -> s')
-              | _, PortStatusMsg { reason = ChangeReason.Delete; desc } ->
+              (* | _, PortStatusMsg { reason = ChangeReason.Delete; desc } *)
+              | _, PortStatusMsg { reason = ChangeReason.Modify; desc }
+                  when PortDescription.(desc.state.PortState.down) ->
                 let s', (sw_id, ports) = State.remove_port s c_id desc in
                 let local_pol = s'.State.local sw_id in
                 Deferred.all (to_messages local_pol ports ~f:(Controller.send t c_id))
                 >>| (fun _ -> s')
-              | _, PortStatusMsg { reason = ChangeReason.Modify }
               | _ ->
                 Log.info "Dropped message: %s" (M.to_string msg);
                 return s

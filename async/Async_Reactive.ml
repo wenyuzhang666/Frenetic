@@ -122,15 +122,21 @@ module State = struct
 
   let add_port s ~c_id ~desc =
     let sw_id, ports = SwitchMap.find_exn s.sws c_id in
-    let ports' = PortSet.add ports
-      (VInt.Int16(OF0x01.PortDescription.(desc.port_no))) in
+    let port = VInt.Int16(OF0x01.PortDescription.(desc.port_no)) in
+    let ports' = PortSet.add ports port in
+    Log.debug "switch %s - add port %s"
+      (VInt.get_string sw_id)
+      (VInt.get_string port);
     ({ s with sws = SwitchMap.add s.sws ~key:c_id ~data:(sw_id, ports') },
      (sw_id, ports'))
 
   let remove_port s ~c_id ~desc =
     let (sw_id, ports) = SwitchMap.find_exn s.sws c_id in
-    let ports' = PortSet.remove ports
-      (VInt.Int16(OF0x01.PortDescription.(desc.port_no))) in
+    let port = VInt.Int16(OF0x01.PortDescription.(desc.port_no)) in
+    let ports' = PortSet.remove ports port in
+    Log.debug "switch %s - remove port %s"
+      (VInt.get_string sw_id)
+      (VInt.get_string port);
     ({ s with sws = SwitchMap.add s.sws ~key:c_id ~data:(sw_id, ports') },
      (sw_id, ports'))
 

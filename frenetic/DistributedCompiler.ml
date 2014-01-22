@@ -25,8 +25,6 @@ let parse_config (filename : string) : config =
 let rec range (min : int) (max : int) : int list =
   if min = max then [max] else min :: range (min + 1) max
 
-let buffer_age_limit = `Unlimited
-
 let p s = Printf.printf "%s:%s: %s\n%!" (Unix.gethostname ())
   (Pid.to_string (Unix.getpid ())) s
 
@@ -57,7 +55,7 @@ let cluster_map (lst : 'a list)
     | `Eof -> failwith "unexpected EOF from cluster_map worker pipe"
     | `Ok worker -> 
        try_with
-         (fun () -> Parallel.run ~buffer_age_limit ~where:(`On worker) (fun () -> f x))
+         (fun () -> Parallel.run ~where:(`On worker) (fun () -> f x))
        >>= (function
        | Error exn -> 
          p (sprintf "Exception from %s: %s" worker (Exn.to_string exn));
@@ -121,7 +119,7 @@ let rec ship_policy (pol_file : string)
                     (worker : string) : unit Deferred.t =
   p (sprintf "Sending policy to %s" worker);
   try_with (fun () ->
-    Parallel.run ~buffer_age_limit  ~where:(`On worker) (receive_policy pol_file pol_data)
+    Parallel.run ~where:(`On worker) (receive_policy pol_file pol_data)
     >>= function
     | Ok r -> p (sprintf "ship_policy to %s succeeded" worker); return ()
     | Error e -> p (sprintf "ship_policy to %s died with %s" worker e); return ())

@@ -60,10 +60,11 @@ let to_messages flowtable ports ~f =
   let adds = List.map flowtable ~f:(fun flow ->
     let specialized = match failover flow ports with
       | None -> failwith "can't specialize flow"
-      | Some(f) -> f in
+      | Some(flow) -> flow in
     decr priority;
     f (0l, FlowModMsg (SDN_OpenFlow0x01.from_flow !priority specialized))) in
-  delete :: adds
+  let drop = f (0l, FlowModMsg (OpenFlow0x01_Core.(add_flow 0 match_all) [])) in
+  delete :: drop :: adds
 
 let update_flow_table t sw_id = failwith "NYI"
 

@@ -57,12 +57,12 @@ let to_messages flowtable ports ~f =
   let open OF0x01.Message in
   let priority = ref 65536 in
   let delete = f (0l, FlowModMsg OpenFlow0x01_Core.delete_all_flows) in
-  let adds = List.map flowtable ~f:(fun flow ->
-    let specialized = match failover flow ports with
-      | None -> failwith "can't specialize flow"
-      | Some(flow) -> flow in
-    decr priority;
-    f (0l, FlowModMsg (SDN_OpenFlow0x01.from_flow !priority specialized))) in
+  let adds = List.filter_map flowtable ~f:(fun flow ->
+    match failover flow ports with
+      | None -> None
+      | Some(flow) ->
+        decr priority;
+        Some(f (0l, FlowModMsg (SDN_OpenFlow0x01.from_flow !priority flow)))) in
   let drop = f (0l, FlowModMsg (OpenFlow0x01_Core.(add_flow 0 match_all) [])) in
   delete :: drop :: adds
 

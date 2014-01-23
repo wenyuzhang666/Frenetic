@@ -9,6 +9,7 @@ module OF0x01 = OpenFlow0x01
 
 
 module PortSet = Set.Make(VInt)
+module PortMap = Map.Make(VInt)
 module SwitchMap = Map.Make(Controller.Client_id)
 
 module Log = Async_OpenFlow.Log
@@ -66,8 +67,6 @@ let to_messages flowtable ports ~f =
   let drop = f (0l, FlowModMsg (OpenFlow0x01_Core.(add_flow 0 match_all) [])) in
   delete :: drop :: adds
 
-let update_flow_table t sw_id = failwith "NYI"
-
 let choose_event t evts =
   let op = Pipe.read evts
     >>| function
@@ -84,9 +83,15 @@ let choose_policy t pols =
 
 module State = struct
 
+  type sw_t = {
+    sw_id : VInt.t;
+    live_ports : PortSet.t;
+    port_flows : OF0x01.FlowMod.t list PortMap.t
+  }
+
   type ('e, 'p) t = {
-    local : VInt.t -> SDN_Types.flowTable;
-    sws : (VInt.t * PortSet.t) SwitchMap.t;
+    local : VInt.t -> SDN.flowTable;
+    sws : sw_t SwitchMap.t;
     e : 'e Deferred.choice option;
     p : 'p Deferred.choice option
   }
@@ -98,10 +103,37 @@ module State = struct
     p = None
   }
 
+  let de_group flowtable =
+    let priority = ref 65536 in
+    List.fold flowtable ~init:PortMap.empty ~f:(fun acc flow ->
+      List.fold flow.SDN.action ~init:acc ~f:(fun acc group ->
+        (* XXX(seliopou): This code assumes that the parallel components of each
+         * group will send packets out the _same_ port. Without this assumption,
+         * you must compute flows for each possible subset of the ports on the
+         * switch.
+         * *)
+        let ports = PortSet.union_list (List.map group ~f:(fun par ->
+          List.fold par ~init:PortSet.empty ~f:(fun port_acc action ->
+            match action with
+              | SDN.SetField (SDN.InPort, p)
+              | SDN.OutputPort p
+              | SDN.Enqueue (p, _) ->
+                PortSet.add port_acc p
+              | _ -> port_acc))) in
+        assert (PortSet.length ports = 1);
+        decr priority;
+        let port = PortSet.min_elt_exn ports in
+        let flow = SDN_OpenFlow0x01.from_flow !priority
+          { flow with SDN.action = [group] } in
+        let table = match PortMap.find acc port with
+          | None -> []
+          | Some(e) -> e in
+        PortMap.add acc ~key:port ~data:(flow::table)))
+
   let add_switch s ~c_id ~feats =
     let open OF0x01 in
     let sw_id = VInt.Int64 feats.SwitchFeatures.switch_id in
-    let ports = PortSet.of_list
+    let live_ports = PortSet.of_list
       (List.filter_map feats.SwitchFeatures.ports ~f:(fun p ->
         if PortDescription.(p.config.PortConfig.down)
           then None
@@ -110,36 +142,49 @@ module State = struct
       (VInt.get_string sw_id);
     Log.info ~tags:tags "switch %s - ports: %s%!"
       (VInt.get_string sw_id)
-      (PortSet.fold ports ~init:"" ~f:(fun acc e ->
+      (PortSet.fold live_ports ~init:"" ~f:(fun acc e ->
         Printf.sprintf "%s%s"
         (VInt.get_string e)
         (if acc = "" then "" else ", " ^ acc)));
-    ({ s with sws = SwitchMap.add s.sws ~key:c_id ~data:(sw_id, ports) },
-     (sw_id, ports))
+    let port_flows = de_group (s.local sw_id) in
+    let flows = List.concat (PortMap.data (PortMap.filter port_flows ~f:(fun ~key ~data ->
+      PortSet.mem live_ports key))) in
+    let switch = { sw_id; live_ports; port_flows } in
+    ({ s with sws = SwitchMap.add s.sws ~key:c_id ~data:switch },
+     (sw_id, flows))
 
   let remove_switch s ~c_id =
     { s with sws = SwitchMap.remove s.sws c_id }
 
   let add_port s ~c_id ~desc =
-    let sw_id, ports = SwitchMap.find_exn s.sws c_id in
+    let { sw_id; live_ports; port_flows } = SwitchMap.find_exn s.sws c_id in
     let port = VInt.Int16(OF0x01.PortDescription.(desc.port_no)) in
-    let ports' = PortSet.add ports port in
+    let live_ports = PortSet.add live_ports port in
     Log.info "switch %s - add port %s"
       (VInt.get_string sw_id)
       (VInt.get_string port);
-    ({ s with sws = SwitchMap.add s.sws ~key:c_id ~data:(sw_id, ports') },
-     (sw_id, ports'))
+    let flows = match PortMap.find port_flows port with
+      | None -> []
+      | Some(flows) -> flows in
+    let switch = { sw_id; live_ports; port_flows } in
+    ({ s with sws = SwitchMap.add s.sws ~key:c_id ~data:switch },
+     flows)
 
   let remove_port s ~c_id ~desc =
-    let (sw_id, ports) = SwitchMap.find_exn s.sws c_id in
+    let { sw_id; live_ports; port_flows } = SwitchMap.find_exn s.sws c_id in
     let port = VInt.Int16(OF0x01.PortDescription.(desc.port_no)) in
-    let ports' = PortSet.remove ports port in
+    let live_ports = PortSet.remove live_ports port in
     Log.info "switch %s - remove port %s"
       (VInt.get_string sw_id)
       (VInt.get_string port);
-    ({ s with sws = SwitchMap.add s.sws ~key:c_id ~data:(sw_id, ports') },
-     (sw_id, ports'))
-
+    let open OpenFlow0x01_Core in
+    let flows = match PortMap.find port_flows port with
+      | None -> []
+      | Some(flows) ->
+        List.map flows ~f:(fun flow -> { flow with command = DeleteStrictFlow }) in
+    let switch = { sw_id; live_ports; port_flows } in
+    ({ s with sws = SwitchMap.add s.sws ~key:c_id ~data:switch },
+     flows)
 end
 
 let start ~f ~port ~init_pol ~pols =
@@ -155,16 +200,15 @@ let start ~f ~port ~init_pol ~pols =
     Deferred.choose (List.filter_map ~f:(fun e -> e) [ s.State.e ; s.State.p ])
     >>= function
       | `Event Some(evt) ->
+        let open OF0x01.Message in
         begin match evt with
           | `Connect(c_id, feats) ->
-            let s', (sw_id, ports) = State.add_switch s c_id feats in
-            let local_pol = s.State.local sw_id in
+            let s', (sw_id, flows) = State.add_switch s c_id feats in
             Log.info ~tags:tags "switch %s - initializing%!"
               (VInt.get_string sw_id);
-            Deferred.all (to_messages local_pol ports ~f:(Controller.send t c_id))
-            >>| fun _ -> { s' with
-              State.e = Some(choose_event t evts)
-            }
+            Deferred.all (List.map flows ~f:(fun flow ->
+              Controller.send t c_id (0l, FlowModMsg flow)))
+            >>| fun _ -> s'
           | `Disconnect(c_id, _) ->
             return (State.remove_switch s c_id)
           | `Message(c_id, msg) ->
@@ -175,33 +219,32 @@ let start ~f ~port ~init_pol ~pols =
               (* | _, PortStatusMsg { reason = ChangeReason.Add; desc } *)
               | _, PortStatusMsg { reason = ChangeReason.Modify; desc }
                   when not PortDescription.(desc.state.PortState.down) ->
-                let s', (sw_id, ports) = State.add_port s c_id desc in
-                let local_pol = s'.State.local sw_id in
-                Deferred.all (to_messages local_pol ports ~f:(Controller.send t c_id))
+                let s', flows = State.add_port s c_id desc in
+                Deferred.all (List.map flows ~f:(fun flow ->
+                  Controller.send t c_id (0l, FlowModMsg flow)))
                 >>| (fun _ -> s')
               (* | _, PortStatusMsg { reason = ChangeReason.Delete; desc } *)
               | _, PortStatusMsg { reason = ChangeReason.Modify; desc }
                   when PortDescription.(desc.state.PortState.down) ->
-                let s', (sw_id, ports) = State.remove_port s c_id desc in
-                let local_pol = s'.State.local sw_id in
-                Deferred.all (to_messages local_pol ports ~f:(Controller.send t c_id))
+                let s', flows = State.remove_port s c_id desc in
+                Deferred.all (List.map flows ~f:(fun flow ->
+                  Controller.send t c_id (0l, FlowModMsg flow)))
                 >>| (fun _ -> s')
               | _ ->
                 Log.info "Dropped message: %s" (M.to_string msg);
                 return s
-            end >>| fun s -> { s with State.e = Some(choose_event t evts) }
-        end
+            end
+        end >>| fun s -> { s with State.e = Some(choose_event t evts) }
       | `Policy Some(new_pol) ->
-        let local = f new_pol in
-        let next ~key ~data =
-          let sw_id, ports = data in
-          Deferred.all (to_messages (local sw_id) ports ~f:(Controller.send t key))
-          >>| (fun _ -> ()) in
-        Deferred.Map.iter s.State.sws ~f:next
-        >>= fun _ -> return { s with
-          State.local = local;
-          State.p = Some(choose_policy t pols)
-        }
+        (* XXX(seliopou): This is a rarely-used case and in fact will never be
+         * hit during tests or experiments, so leave it unimplemented unitl it's
+         * required. Just remember to block the event loop until all the new
+         * flowtables have been installed on switches, or otherwise avoid the
+         * controller trying to install two different policies on the network.
+         *
+         * Handshakes and echoes will still go through in the layer below.
+         * *)
+        failwith "NYI"
       | `Event None ->
         return { s with State.e = None }
       | `Policy None ->

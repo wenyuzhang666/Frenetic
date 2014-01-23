@@ -1,4 +1,4 @@
-open Types 
+open NetKAT_Types 
 open SDN_Types
 
 type t 

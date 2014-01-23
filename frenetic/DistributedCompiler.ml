@@ -39,7 +39,7 @@ let parse_config (filename : string) : config =
 
 (* Parses src and caches it to dump. It is up to you to "clear the cache"
    by deleting dump if you change src. *)
-let parse_caching (src : string) (dump : string) : Types.policy Deferred.t =
+let parse_caching (src : string) (dump : string) : NetKAT_Types.policy Deferred.t =
   Sys.is_file dump
   >>= function
   | `Yes ->
@@ -50,7 +50,7 @@ let parse_caching (src : string) (dump : string) : Types.policy Deferred.t =
       (fun () ->
          let out = Pervasives.open_out dump in
          let chan = Pervasives.open_in src in
-         let pol = Parser.program Lexer.token (Lexing.from_channel chan) in
+         let pol = NetKAT_Parser.program NetKAT_Lexer.token (Lexing.from_channel chan) in
          Marshal.to_channel out pol [];
          Pervasives.close_out out;
          pol)
@@ -62,7 +62,7 @@ let compile ~pol ~sw () =
   p (sprintf "finished compile ~sw:%d ~pol:_ (flow table has length %d)" sw (List.length tbl));
   return tbl
 
-let compile_par (pol : Types.policy) (sw : int) : unit Deferred.t = 
+let compile_par (pol : NetKAT_Types.policy) (sw : int) : unit Deferred.t = 
   p (sprintf "invoking parallel compile ~sw:%d ~pol:_" sw);
   Parallel.run ~where:Parallel.random (compile ~pol ~sw)
   >>= function

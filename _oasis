@@ -124,7 +124,7 @@ Executable distfrenetic
   Path: frenetic
   CompiledObject: best
   MainIs: DistributedCompiler.ml
-  Install: False
+  Install: false
   BuildDepends:
     netcore,
     core,

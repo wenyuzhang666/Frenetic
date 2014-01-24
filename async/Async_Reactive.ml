@@ -25,48 +25,6 @@ let _ = Log.set_output
 
 let tags = [("openflow", "reactive")]
 
-let pick_group ports =
-  let f (a : SDN.action) =
-    match a with
-      | SDN.SetField (SDN.InPort, p)
-      | SDN.OutputPort p
-      | SDN.Enqueue (p, _) ->
-        PortSet.mem ports p
-      | _ -> true in
-  fun par ->
-    (* XXX(seliopou): This more or less assumes that there is no parallel
-     * composition in the action. If there is a parallel composition, then this
-     * would have to turn into a filter_map. In that situation efficiently
-     * swapping out flowtables (i.e., not just blowing away the table) when
-     * ports go down would be much more algorithmically complicated. You would
-     * have to keep track of all the rules that should be installed given all
-     * the potential subset of active ports involved in the rule.
-     *
-     * I think.
-     * *)
-    if List.for_all par ~f:(List.for_all ~f:f) then
-      Some(par)
-    else
-      None
-
-let failover flow (ports : PortSet.t) : SDN.flow option =
-  match List.filter_map flow.SDN.action ~f:(pick_group ports) with
-    | [] -> None
-    | g::gs -> Some({ flow with SDN.action = [g] })
-
-let to_messages flowtable ports ~f =
-  let open OF0x01.Message in
-  let priority = ref 65536 in
-  let delete = f (0l, FlowModMsg OpenFlow0x01_Core.delete_all_flows) in
-  let adds = List.filter_map flowtable ~f:(fun flow ->
-    match failover flow ports with
-      | None -> None
-      | Some(flow) ->
-        decr priority;
-        Some(f (0l, FlowModMsg (SDN_OpenFlow0x01.from_flow !priority flow)))) in
-  let drop = f (0l, FlowModMsg (OpenFlow0x01_Core.(add_flow 0 match_all) [])) in
-  delete :: drop :: adds
-
 let choose_event t evts =
   let op = Pipe.read evts
     >>| function

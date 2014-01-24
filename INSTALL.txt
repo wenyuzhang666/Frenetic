@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 4512f27114d9b97659a6b9c80a586723) *)
+(* DO NOT EDIT (digest: b0279702a7afa01636238a94ed646d40) *)
 This is the INSTALL file for the frenetic distribution.
 
 This package uses OASIS to generate its build system. See section OASIS for
@@ -18,7 +18,7 @@ In order to compile this package, you will need:
 * lwt for library lwt, library netcore, executable katnetic,
   executable netkat_test
 * ocamlgraph for library lwt, library netcore
-* openflow for library lwt, library netcore
+* openflow for library lwt, library netcore, executable distfrenetic
 * packet for library lwt, library netcore, executable testtool
 * topology for library lwt, library netcore
 * quickcheck for library quickcheck, executable testtool

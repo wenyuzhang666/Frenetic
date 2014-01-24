@@ -131,4 +131,6 @@ Executable distfrenetic
     threads,
     yojson,
     async,
-    async_parallel
+    async_parallel,
+    openflow,
+    openflow.async

@@ -37,7 +37,7 @@ let parse_config (filename : string) : config =
 let rec range (min : int) (max : int) : int list =
   if min = max then [max] else min :: range (min + 1) max
 
-let p s = Printf.printf "%s:%s: %s\n%!" (Unix.gethostname ())
+let p s = Printf.eprintf "%s:%s: %s\n%!" (Unix.gethostname ())
   (Pid.to_string (Unix.getpid ())) s
 
 exception Remote_exception of string * string
@@ -55,7 +55,7 @@ let measure_time label (f : unit -> 'a Deferred.t) : 'a Deferred.t =
 let cluster_map (lst : 'a list) 
   ~(per_worker : int)
   ~(config : config) 
-  ~(f : string -> 'a -> 'b Deferred.t) : ('a, exn) Result.t list Deferred.t =
+  ~(f : string -> 'a -> 'b Deferred.t) : ('b, exn) Result.t list Deferred.t =
   let (workers_r, workers_w) = Pipe.create () in
   let workers = List.concat_map (range 1 per_worker) 
                   ~f:(fun _ -> config.workers) in
@@ -94,18 +94,31 @@ let receive_policy (pol_data : string) () : string Deferred.t =
 
 let compile_in_process ~pol_dump ~sw =
   p (sprintf "starting compile ~sw:%d ~pol:_" sw);
-    let tbl_m = In_thread.run (fun () -> 
-      let pol = Marshal.from_channel (Pervasives.open_in pol_dump) in
-      LocalCompiler.to_table (LocalCompiler.compile (VInt.Int64 (Int64.of_int sw)) pol)) in
-    Clock.every' ~stop:(tbl_m >>= fun _ -> return ()) (Time.Span.of_int_sec 30) 
-      (fun () ->
-         let n = Core.Std.Gc.allocated_bytes () /. 1024. /. 1024. in
-          p (sprintf "still running (%fMB heap)" n);
-          return ());
-    tbl_m >>= fun tbl ->
-    let n = List.length tbl in
-    p (sprintf "finished compile ~sw:%d ~pol:_ (flow table has length %d)" sw n);
-    return n
+  let stats_m = In_thread.run (fun () -> 
+    let open LocalCompiler in
+    let sw_vint = VInt.Int64 (Int64.of_int sw) in
+    let pol = Marshal.from_channel (Pervasives.open_in pol_dump) in
+    let t1 = Unix.gettimeofday () in
+    let i = compile sw_vint pol in
+    let t2 = Unix.gettimeofday () in
+    let tbl = to_table i in
+    let t3 = Unix.gettimeofday () in
+    (t1, t2, t3, tbl, Semantics.size pol)) in
+  let completed = stats_m >>= fun _ -> return () in
+  Clock.every' (Time.Span.of_int_sec 30) ~stop:completed
+    (fun () ->
+       let n = Core.Std.Gc.allocated_bytes () /. 1024. /. 1024. in
+       p (sprintf "still running (%fMB heap)" n);
+       return ());
+  stats_m
+  >>= fun (t1, t2, t3, tbl, pol_size) ->
+  let n = List.length tbl in
+  p (sprintf "finished compile ~sw:%d (flow table has length %d)" sw n);
+  (* Output that Marco's scripts expect *)
+  let str = sprintf
+    "Compiling switch %d [size=%d]...Done [ctime=%fs ttime=%fs tsize=%d]"
+    sw pol_size (t2 -. t1) (t3 -. t2) n in
+  return str
 
 let compile ~pol_dump ~sw = 
   measure_time (sprintf "compile ~sw:%d" sw) (fun () ->
@@ -153,7 +166,8 @@ and compile_all config cached_policies (per_worker : int) min_sw max_sw =
   >>= fun results ->
   let failures = List.filter_map results ~f:Result.error in
   List.iter failures ~f:(fun exn -> p (Exn.to_string exn));
-  printf "%d failures.\n%!" (List.length failures);
+  p (sprintf "%d failures.\n%!" (List.length failures));
+  printf "%s\n%!" (String.concat (List.filter_map results ~f:Result.ok) ~sep:"\n");
   return ()
 
 let rm_tmp cached_policies worker = 

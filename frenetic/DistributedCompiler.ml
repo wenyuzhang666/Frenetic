@@ -26,13 +26,15 @@ Compiling switch 2 [size=7347204]...Done [ctime=3.702919s ttime=0.001150s tsize=
 *)
 type config = {
   workers: string list;   (* hostnames or IP addresses of worker machines  *)
+  per_worker : int;
 }
 
 let parse_config (filename : string) : config = 
   let json = Yojson.Basic.from_file filename in
   let open Yojson.Basic.Util in
   let workers = json |> member "workers" |> to_list |> filter_string in
-  { workers }
+  let per_worker = json |> member "per_worker" |> to_int in
+  { workers; per_worker }
 
 let rec range (min : int) (max : int) : int list =
   if min = max then [max] else min :: range (min + 1) max
@@ -179,11 +181,27 @@ let rm_tmp cached_policies worker =
       (p (sprintf "rm_tmp exception: %s" exn));
       return ()
 
+(* let dist_compiler (pol : Types.policy)
+  ~(min_sw : int)
+  ~(max_sw : int)
+  ~(config : config) : unit Deferred.t =
+  let per_worker = config.per_worker in
+  (* Map from remote hostname to remote filename. *)
+  let cached_policies = String.Table.create () in
+  let ship_and_compile () = 
+    ship config cached_policies pol_file 
+    >>= fun () ->
+    compile_all config cached_policies per_worker min_sw max_sw in
+  let finally_block () = 
+    Deferred.List.iter config.workers
+      ~how:`Parallel ~f:(rm_tmp cached_policies) in
+  Monitor.protect ship_and_compile finally_block
+ *)
 let main () = 
   match Array.to_list Sys.argv with
-    | [_; "master"; config_file; pol_file; per_worker; min_sw; max_sw ] ->
+    | [_; "master"; config_file; pol_file; min_sw; max_sw ] ->
       let config = parse_config config_file in
-      let per_worker = Int.of_string per_worker in
+      let per_worker = config.per_worker in
       let min_sw = Int.of_string min_sw in
       let max_sw = Int.of_string max_sw in
       Parallel.init ~cluster: { Cluster.master_machine = Unix.gethostname();

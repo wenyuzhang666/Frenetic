@@ -63,30 +63,40 @@ module State = struct
 
   let de_group flowtable =
     let priority = ref 65536 in
-    List.fold flowtable ~init:PortMap.empty ~f:(fun acc flow ->
-      List.fold flow.SDN.action ~init:acc ~f:(fun acc group ->
+    let non_failover = ref [] in
+    let port_flows = List.fold flowtable ~init:PortMap.empty ~f:(fun acc flow ->
+      List.fold flow.SDN.action ~init:acc ~f:(fun acc par ->
         (* XXX(seliopou): This code assumes that the parallel components of each
          * group will send packets out the _same_ port. Without this assumption,
          * you must compute flows for each possible subset of the ports on the
          * switch.
          * *)
-        let ports = PortSet.union_list (List.map group ~f:(fun par ->
-          List.fold par ~init:PortSet.empty ~f:(fun port_acc action ->
+        let ports = PortSet.union_list (List.map par ~f:(fun seq ->
+          List.fold seq ~init:PortSet.empty ~f:(fun port_acc action ->
             match action with
               | SDN.SetField (SDN.InPort, p)
               | SDN.OutputPort p
               | SDN.Enqueue (p, _) ->
                 PortSet.add port_acc p
               | _ -> port_acc))) in
-        assert (PortSet.length ports = 1);
+        assert (PortSet.length ports <= 1);
         decr priority;
-        let port = PortSet.min_elt_exn ports in
         let flow = SDN_OpenFlow0x01.from_flow !priority
-          { flow with SDN.action = [group] } in
-        let table = match PortMap.find acc port with
-          | None -> []
-          | Some(e) -> e in
-        PortMap.add acc ~key:port ~data:(flow::table)))
+          { flow with SDN.action = [par] } in
+        if PortSet.length ports = 0 then begin
+          (* The action does not refer to any ports, so this rule should always
+           * be installed *)
+          non_failover := flow :: !non_failover;
+          acc
+        end else begin
+          assert (PortSet.length ports = 1);
+          let port = PortSet.min_elt_exn ports in
+          let table = match PortMap.find acc port with
+            | None -> []
+            | Some(e) -> e in
+          PortMap.add acc ~key:port ~data:(flow::table)
+        end)) in
+    (port_flows, !non_failover)
 
   let add_switch s ~c_id ~feats =
     let open OF0x01 in
@@ -104,12 +114,12 @@ module State = struct
         Printf.sprintf "%s%s"
         (VInt.get_string e)
         (if acc = "" then "" else ", " ^ acc)));
-    let port_flows = de_group (s.local sw_id) in
+    let port_flows, non_failover = de_group (s.local sw_id) in
     let flows = List.concat (PortMap.data (PortMap.filter port_flows ~f:(fun ~key ~data ->
       PortSet.mem live_ports key))) in
     let switch = { sw_id; live_ports; port_flows } in
     ({ s with sws = SwitchMap.add s.sws ~key:c_id ~data:switch },
-     (sw_id, flows))
+     (sw_id, non_failover @ flows))
 
   let remove_switch s ~c_id =
     { s with sws = SwitchMap.remove s.sws c_id }

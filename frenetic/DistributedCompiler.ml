@@ -12,6 +12,18 @@ module Types = NetKAT_Types
 }
 
 *)
+
+(*
+
+  Compiling switch 0 [size=7347204]...Done [ctime=3.747614s ttime=0.000001s tsize=0]@
+Compiling switch 1 [size=7347204]...Done [ctime=3.715512s ttime=0.001282s tsize=80]@
+Compiling switch 2 [size=7347204]...Done [ctime=3.727948s ttime=0.001186s tsize=80]@
+arjun@frenetic:~/src/frenetic$ ./katnetic.native dump local stats 2 abfattree-tables-fail-local-16-3.kat 2> /dev/null
+Compiling switch 0 [size=7347204]...Done [ctime=3.685086s ttime=0.000001s tsize=0]@
+Compiling switch 1 [size=7347204]...Done [ctime=3.698021s ttime=0.001268s tsize=80]@
+Compiling switch 2 [size=7347204]...Done [ctime=3.702919s ttime=0.001150s tsize=80]@
+
+*)
 type config = {
   workers: string list;   (* hostnames or IP addresses of worker machines  *)
 }
@@ -70,24 +82,6 @@ let cluster_map (lst : 'a list)
        return r in
   Deferred.List.map ~how:`Parallel lst ~f:run_on_worker
 
-(* Parses src and caches it to dump. It is up to you to "clear the cache"
-   by deleting dump if you change src. *)
-let parse_caching (src : string) (dump : string) : Types.policy Deferred.t =
-  Sys.is_file dump
-  >>= function
-  | `Yes ->
-    In_thread.run (fun () -> Marshal.from_channel (Pervasives.open_in dump))
-  | _ -> 
-    p "Parsing textual source...";
-    In_thread.run 
-      (fun () ->
-         let out = Pervasives.open_out dump in
-         let chan = Pervasives.open_in src in
-         let pol = NetKAT_Parser.program NetKAT_Lexer.token (Lexing.from_channel chan) in
-         Marshal.to_channel out pol [];
-         Pervasives.close_out out;
-         pol)
-
 (* Runs on a worker to receive a policy and dump it to disk. *)
 let receive_policy (pol_data : string) () : string Deferred.t = 
   let (tmp_path, out_chan) = Filename.open_temp_file "frenetic" "kat" in
@@ -138,13 +132,15 @@ let rec ship_policy tbl
 
 and ship config tbl filename =
   measure_time "shipping data" (fun () ->
-    let src = filename ^ ".kat" in
-    let bin = filename ^ ".bin" in
-    parse_caching src bin 
-    >>= fun _ ->
-    Reader.file_contents bin
+    In_thread.run  (fun () ->
+      let chan = Pervasives.open_in filename in
+      let pol = NetKAT_Parser.program NetKAT_Lexer.token (Lexing.from_channel chan) in
+      let str = Marshal.to_string pol [] in
+      Pervasives.close_in chan;
+      str)
     >>= fun bin_data ->
-    Deferred.List.iter ~how:`Parallel ~f:(ship_policy tbl bin_data) config.workers)
+    Deferred.List.iter config.workers 
+    ~how:`Parallel ~f:(ship_policy tbl bin_data))
 
 and compile_all config cached_policies (per_worker : int) min_sw max_sw =
   let switches = range min_sw max_sw in

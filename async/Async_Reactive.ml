@@ -216,16 +216,24 @@ let start ~f ~port ~init_pol ~pols =
             let open Message in
             let open PortStatus in
             begin match msg with
-              (* | _, PortStatusMsg { reason = ChangeReason.Add; desc } *)
+              | _, PortStatusMsg { reason = ChangeReason.Add; desc } ->
+                let s', flows = State.add_port s c_id desc in
+                Deferred.all (List.map flows ~f:(fun flow ->
+                  Controller.send t c_id (0l, FlowModMsg flow)))
+                >>| (fun _ -> s')
               | _, PortStatusMsg { reason = ChangeReason.Modify; desc }
                   when not PortDescription.(desc.state.PortState.down) ->
                 let s', flows = State.add_port s c_id desc in
                 Deferred.all (List.map flows ~f:(fun flow ->
                   Controller.send t c_id (0l, FlowModMsg flow)))
                 >>| (fun _ -> s')
-              (* | _, PortStatusMsg { reason = ChangeReason.Delete; desc } *)
               | _, PortStatusMsg { reason = ChangeReason.Modify; desc }
                   when PortDescription.(desc.state.PortState.down) ->
+                let s', flows = State.remove_port s c_id desc in
+                Deferred.all (List.map flows ~f:(fun flow ->
+                  Controller.send t c_id (0l, FlowModMsg flow)))
+                >>| (fun _ -> s')
+              | _, PortStatusMsg { reason = ChangeReason.Delete; desc } ->
                 let s', flows = State.remove_port s c_id desc in
                 Deferred.all (List.map flows ~f:(fun flow ->
                   Controller.send t c_id (0l, FlowModMsg flow)))

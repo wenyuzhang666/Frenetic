@@ -9,6 +9,7 @@ module Types = NetKAT_Types
 
 {
   workers: [ "10.152.136.136" ]
+  per_worker: 1
 }
 
 *)
@@ -28,6 +29,12 @@ type config = {
   workers: string list;   (* hostnames or IP addresses of worker machines  *)
   per_worker : int;
 }
+
+let parse_pol filename = 
+  let chan = Pervasives.open_in filename in
+  let pol = NetKAT_Parser.program NetKAT_Lexer.token (Lexing.from_channel chan) in
+  Pervasives.close_in chan;
+  pol
 
 let parse_config (filename : string) : config = 
   let json = Yojson.Basic.from_file filename in
@@ -145,14 +152,9 @@ let rec ship_policy tbl
       (p (sprintf "exception in ship_policy to %s; %s" worker (Exn.to_string exn));
        ())
 
-and ship config tbl filename =
+and ship config tbl pol =
   measure_time "shipping data" (fun () ->
-    In_thread.run  (fun () ->
-      let chan = Pervasives.open_in filename in
-      let pol = NetKAT_Parser.program NetKAT_Lexer.token (Lexing.from_channel chan) in
-      let str = Marshal.to_string pol [] in
-      Pervasives.close_in chan;
-      str)
+    In_thread.run  (fun () -> Marshal.to_string pol [])
     >>= fun bin_data ->
     Deferred.List.iter config.workers 
     ~how:`Parallel ~f:(ship_policy tbl bin_data))
@@ -180,8 +182,8 @@ let rm_tmp cached_policies worker =
     | Error exn ->
       (p (sprintf "rm_tmp exception: %s" exn));
       return ()
-
-(* let dist_compiler (pol : Types.policy)
+(* 
+let dist_compiler (pol : Types.policy)
   ~(min_sw : int)
   ~(max_sw : int)
   ~(config : config) : unit Deferred.t =
@@ -209,7 +211,7 @@ let main () =
       (* Map from remote hostname to remote filename. *)
       let cached_policies = String.Table.create () in
       let ship_and_compile () = 
-        ship config cached_policies pol_file 
+        ship config cached_policies (parse_pol pol_file) 
         >>= fun () ->
         compile_all config cached_policies per_worker min_sw max_sw in
       let finally_block () = 

@@ -182,7 +182,7 @@ let rm_tmp cached_policies worker =
     | Error exn ->
       (p (sprintf "rm_tmp exception: %s" exn));
       return ()
-(* 
+ 
 let dist_compiler (pol : Types.policy)
   ~(min_sw : int)
   ~(max_sw : int)
@@ -191,36 +191,25 @@ let dist_compiler (pol : Types.policy)
   (* Map from remote hostname to remote filename. *)
   let cached_policies = String.Table.create () in
   let ship_and_compile () = 
-    ship config cached_policies pol_file 
+    ship config cached_policies pol
     >>= fun () ->
     compile_all config cached_policies per_worker min_sw max_sw in
   let finally_block () = 
     Deferred.List.iter config.workers
       ~how:`Parallel ~f:(rm_tmp cached_policies) in
   Monitor.protect ship_and_compile finally_block
- *)
+
 let main () = 
   match Array.to_list Sys.argv with
     | [_; "master"; config_file; pol_file; min_sw; max_sw ] ->
       let config = parse_config config_file in
-      let per_worker = config.per_worker in
       let min_sw = Int.of_string min_sw in
       let max_sw = Int.of_string max_sw in
       Parallel.init ~cluster: { Cluster.master_machine = Unix.gethostname();
                                 worker_machines = config.workers } ();
-      (* Map from remote hostname to remote filename. *)
-      let cached_policies = String.Table.create () in
-      let ship_and_compile () = 
-        ship config cached_policies (parse_pol pol_file) 
-        >>= fun () ->
-        compile_all config cached_policies per_worker min_sw max_sw in
-      let finally_block () = 
-        Deferred.List.iter config.workers
-          ~how:`Parallel ~f:(rm_tmp cached_policies) in
-      let _ =
-        Monitor.protect ship_and_compile finally_block
-        >>= fun () ->
-        Shutdown.exit 0 in
+      let _ = dist_compiler (parse_pol pol_file) ~min_sw ~max_sw ~config
+              >>= fun () ->
+              Shutdown.exit 0 in
       p "Master started";
       never_returns (Scheduler.go ())
     | _ ->

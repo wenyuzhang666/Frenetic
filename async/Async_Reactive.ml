@@ -14,6 +14,8 @@ module SwitchMap = Map.Make(Controller.Client_id)
 
 module Log = Async_OpenFlow.Log
 
+let max_pending_connections = 64
+
 let _ = Log.set_level `Debug
 
 let _ = Log.set_output
@@ -156,7 +158,7 @@ module State = struct
 end
 
 let start ~f ~port ~init_pol ~pols =
-  Controller.create ~port () >>= function t ->
+  Controller.create ~port ~max_pending_connections () >>= function t ->
   Log.info "Listening for switches";
   let evts = T.run Controller.features t (Controller.listen t) in
   let init_state = { (State.create (f init_pol)) with

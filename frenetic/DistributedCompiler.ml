@@ -203,7 +203,8 @@ let main () =
         Shutdown.exit 0 in
       p "Master started";
       never_returns (Scheduler.go ())
-    | [_] -> Parallel.init ()
-    | _ -> printf "Invalid argument. See source code for help.\n%!"
+    | _ ->
+      if Parallel.is_worker_machine () then Parallel.init ()
+      else printf "Invalid argument. See source code for help.\n%!"
 
 let () = main ()

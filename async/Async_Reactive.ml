@@ -41,6 +41,11 @@ let choose_policy t pols =
       | `Ok local -> Some(local) in
   choice op (fun e -> `Policy(e))
 
+let port_useable (p:OF0x01.PortDescription.t) : bool =
+  let open OF0x01.PortDescription in
+  if p.config.PortConfig.down then false
+  else not (p.state.PortState.down)
+
 module State = struct
 
   type sw_t = {
@@ -105,12 +110,12 @@ module State = struct
     let sw_id = VInt.Int64 feats.SwitchFeatures.switch_id in
     let live_ports = PortSet.of_list
       (List.filter_map feats.SwitchFeatures.ports ~f:(fun p ->
-        if PortDescription.(p.config.PortConfig.down)
-          then None
-          else Some(VInt.Int16(p.PortDescription.port_no)))) in
+        if port_useable p
+          then Some(VInt.Int16(p.PortDescription.port_no))
+          else None)) in
     Log.info ~tags:tags "switch %s - connected%!"
       (VInt.get_string sw_id);
-    Log.info ~tags:tags "switch %s - ports: %s%!"
+    Log.info ~tags:tags "switch %s - live ports: %s%!"
       (VInt.get_string sw_id)
       (PortSet.fold live_ports ~init:"" ~f:(fun acc e ->
         Printf.sprintf "%s%s"
@@ -186,19 +191,20 @@ let start ~f ~port ~init_pol ~pols =
             let open Message in
             let open PortStatus in
             begin match msg with
-              | _, PortStatusMsg { reason = ChangeReason.Add; desc } ->
+              | _, PortStatusMsg { reason = ChangeReason.Add; desc }
+                  when port_useable desc ->
                 let s', flows = State.add_port s c_id desc in
                 Deferred.all (List.map flows ~f:(fun flow ->
                   Controller.send t c_id (0l, FlowModMsg flow)))
                 >>| (fun _ -> s')
               | _, PortStatusMsg { reason = ChangeReason.Modify; desc }
-                  when not PortDescription.(desc.state.PortState.down) ->
+                  when port_useable desc ->
                 let s', flows = State.add_port s c_id desc in
                 Deferred.all (List.map flows ~f:(fun flow ->
                   Controller.send t c_id (0l, FlowModMsg flow)))
                 >>| (fun _ -> s')
               | _, PortStatusMsg { reason = ChangeReason.Modify; desc }
-                  when PortDescription.(desc.state.PortState.down) ->
+                  when not (port_useable desc) ->
                 let s', flows = State.remove_port s c_id desc in
                 Deferred.all (List.map flows ~f:(fun flow ->
                   Controller.send t c_id (0l, FlowModMsg flow)))

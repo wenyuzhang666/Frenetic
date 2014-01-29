@@ -1,4 +1,5 @@
 open PolicyGenerator
+open Async_parallel.Std
 
 let help args =
   match args with 
@@ -112,6 +113,31 @@ module Dump = struct
             "@[usage: katnetic dump local [all|policies|flowtables|stats] <number of switches> <filename>@\n@]%!"
   end
 
+  module Dist = struct
+
+    open DistributedCompiler
+    open Core.Std
+    open Async.Std
+
+    let main = function
+      | ["stats"; config_file; num_sw; filename] ->
+          let config = parse_config config_file in
+          let min_sw = 0 in
+          let max_sw = Int.of_string num_sw in
+          Parallel.init ~cluster:{ Cluster.master_machine = Unix.gethostname();
+                                   Cluster.worker_machines = config.workers } ();
+          with_file (fun pol ->
+            let _ = dist_compiler pol ~min_sw ~max_sw ~config
+                >>= fun () ->
+                Shutdown.exit 0 in
+            never_returns (Scheduler.go ()))
+            filename
+      | _ -> 
+        print_endline "usage: katnetic dump dist stats <cluster.conf> \
+          <number of switches> <filename>"
+
+  end
+
   module Automaton = struct
     open NetKAT_Automaton
 
@@ -157,6 +183,7 @@ module Dump = struct
     match args with
       | ("local"     :: args') -> Local.main args'
       | ("automaton" :: args') -> Automaton.main args'
+      | "dist" :: args' -> Dist.main args'
       | _ -> help [ "dump" ]
 
 end
@@ -165,4 +192,8 @@ let () =
   match Array.to_list Sys.argv with
     | (_ :: "run"  :: args) -> Run.main args
     | (_ :: "dump" :: args) -> Dump.main args
-    | _ -> help []
+    | _ -> 
+      if Parallel.is_worker_machine () then
+        Parallel.init ()
+      else
+        help []

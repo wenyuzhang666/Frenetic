@@ -65,9 +65,12 @@ Library async
     threads,
     textutils,
     topology,
-    sexplib.syntax
+    sexplib.syntax,
+    async_parallel,
+    yojson
   Modules:
-    Async_Controller
+    Async_Controller,
+    DistributedCompiler
 
 Library quickcheck
   Findlibparent: netcore
@@ -107,7 +110,8 @@ Executable katnetic
     async,
     core,
     netcore,
-    netcore.async
+    netcore.async,
+    async_parallel
 
 Executable netkat_test
   Path: frenetic
@@ -119,18 +123,3 @@ Executable netkat_test
     core,
     netcore,
     netcore.async
-
-Executable distfrenetic
-  Path: frenetic
-  CompiledObject: best
-  MainIs: DistributedCompiler.ml
-  Install: false
-  BuildDepends:
-    netcore,
-    core,
-    threads,
-    yojson,
-    async,
-    async_parallel,
-    openflow,
-    openflow.async

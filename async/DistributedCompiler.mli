@@ -28,7 +28,7 @@ val parse_config : string -> config
 
     Assumes that [Parallel.init] has already been invoked and that all workers
     are part of the cluster. *)
-val dist_compiler : Types.policy -> 
+val dist_compiler : NetKAT_Types.policy -> 
   min_sw:int ->
   max_sw:int ->
   config:config ->

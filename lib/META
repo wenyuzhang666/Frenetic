@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 0b20034912a7ca3882d0db806634c669)
+# DO NOT EDIT (digest: 287d377ee69e2268ff78065e6e3b5041)
 version = "1.0.2"
 description = "The Frenetic Compiler and Runtime System"
 requires =
@@ -24,7 +24,7 @@ package "async" (
  version = "1.0.2"
  description = "The Frenetic Compiler and Runtime System"
  requires =
- "async core cstruct cstruct.async dprle netcore ocamlgraph openflow openflow.async packet threads textutils topology sexplib.syntax"
+ "async core cstruct cstruct.async dprle netcore ocamlgraph openflow openflow.async packet threads textutils topology sexplib.syntax async_parallel yojson"
  archive(byte) = "async.cma"
  archive(byte, plugin) = "async.cma"
  archive(native) = "async.cmxa"

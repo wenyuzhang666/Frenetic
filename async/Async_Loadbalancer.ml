@@ -95,22 +95,25 @@ module State = struct
     let pkt = parse_payload pi.input_payload in
     let sw_id, sw_t = SwitchMap.find_exn t.switches c_id in
     let src, dst = VInt.Int64 pkt.Packet.dlSrc, VInt.Int64 pkt.Packet.dlDst in
-    let group = BalanceGroup.find_exn sw_t.balance_flows (src, dst) in
-    let flow = List.nth_exn group (let open Int64 in
-      to_int_exn (rem (hash_packet pkt) (of_int_exn (List.length group)))) in
-    let open OF0x01.Message in
-    let open OpenFlow0x01_Core in
-    match pi.input_payload with
-      | Buffered(buf_id, _) ->
-        [(0l, FlowModMsg { flow with apply_to_packet = Some(buf_id) })]
-      | NotBuffered _ ->
-        let open OF0x01.PacketOut in
-        [(xid, PacketOutMsg {
-            output_payload = pi.input_payload;
-            port_id = Some(pi.port);
-            apply_actions = [ Output(match flow.out_port with | Some(p) -> p |
-            None -> failwith "should not happen") ] });
-        (0l, FlowModMsg flow)]
+    match BalanceGroup.find sw_t.balance_flows (src, dst) with
+      | Some (group) ->
+        let flow = List.nth_exn group (let open Int64 in
+          to_int_exn (rem (hash_packet pkt) (of_int_exn (List.length group)))) in
+        let open OF0x01.Message in
+        let open OpenFlow0x01_Core in
+        begin match pi.input_payload with
+          | Buffered(buf_id, _) ->
+            [(0l, FlowModMsg { flow with apply_to_packet = Some(buf_id) })]
+          | NotBuffered _ ->
+            let open OF0x01.PacketOut in
+            [(xid, PacketOutMsg {
+                output_payload = pi.input_payload;
+                port_id = Some(pi.port);
+                apply_actions = [ Output(match flow.out_port with | Some(p) -> p |
+                None -> failwith "should not happen") ] });
+            (0l, FlowModMsg flow)]
+          end
+      | None -> []
 end
 
 let start_static ~f ~port ~pol : unit Deferred.t =

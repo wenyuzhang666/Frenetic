@@ -64,6 +64,7 @@ Library async
     sexplib.syntax
   Modules:
     Async_Controller,
+    Async_Loadbalancer,
     Async_Reactive
 
 Library quickcheck

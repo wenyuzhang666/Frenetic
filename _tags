@@ -164,4 +164,5 @@
 # OASIS_STOP
 <test/*.ml>: syntax_camlp4o
 <lib/*.ml>: syntax_camlp4o
+<async/*.ml>: syntax_camlp4o
 true: thread

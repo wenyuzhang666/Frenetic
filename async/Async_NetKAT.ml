@@ -22,6 +22,25 @@ module Node = struct
 
   let parse_dot _ _ = failwith "NYI: Node.parse_dot"
   let parse_gml _ = failwith "NYI: Node.parse_dot"
+
+  let to_json t = match t with
+    | Switch(sw_id) ->
+      `Assoc [("type", `String "switch");
+              ("id", `String (Int64.to_string sw_id))]
+    | Host(dlAddr, nwAddr) ->
+      `Assoc [("type", `String "host");
+              ("mac", `String (Packet.string_of_mac dlAddr));
+              ("ip", `String (Packet.string_of_ip nwAddr))]
+
+  let from_json json = match json with
+    | `Assoc [("type", `String "switch");
+              ("id", `String sw_id)] ->
+      Switch(Int64.of_string sw_id)
+    | `Assoc [("type", `String "host");
+              ("mac", `String dlAddr);
+              ("ip", `String nwAddr)] ->
+      Host(Packet.mac_of_string dlAddr, Packet.ip_of_string nwAddr)
+    | _ -> raise (Network.Parse_error "Node.from_json: can't parse")
 end
 
 module Link = struct
@@ -34,6 +53,9 @@ module Link = struct
 
   let parse_dot _ = failwith "NYI: Link.parse_dot"
   let parse_gml _ = failwith "NYI: Link.parse_dot"
+
+  let to_json () = `String "()"
+  let from_json _ = ()
 end
 
 module Net = Network.Make(Node)(Link)

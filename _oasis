@@ -50,6 +50,8 @@ Library async
   BuildDepends:
     async,
     core,
+    cohttp,
+    cohttp.async,
     cstruct,
     cstruct.async,
     cstruct.syntax,
@@ -58,6 +60,7 @@ Library async
     openflow,
     openflow.async,
     packet,
+    re,
     threads,
     textutils,
     topology,
@@ -65,7 +68,8 @@ Library async
     sexplib.syntax
   InternalModules:
     Discovery,
-    Learning
+    Learning,
+    Server
   Modules:
     Async_NetKAT,
     Async_NetKAT_Controller

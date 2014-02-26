@@ -294,6 +294,25 @@ let start app ?(port=6633) () =
       nib = ref (Net.Topology.empty ());
       locals = SwitchMap.empty
     } in
+
+    let routes = [
+      ("/topology", fun _ ->
+          Server.string_handler (Net.Pretty.to_json !(t.nib)));
+      ("/switch/([1-9][0-9]*)", fun g ->
+          let sw_id = Int64.of_string (Array.get g 1) in
+          Log.info ~tags "Requested policy for switch %Lu" sw_id;
+          match SwitchMap.find t.locals sw_id with
+            | None ->
+              Server.not_found_handler
+            | Some(local) ->
+              let pol = LocalCompiler.to_netkat local in
+              Server.string_handler (NetKAT_Pretty.string_of_policy pol))
+    ] in
+
+    Server.create (routes @ Server.routes)
+    >>> (fun t ->
+       Log.info ~tags "Started embedded HTTP server.");
+
     (* The pipe for packet_outs. The Pipe.iter below will run in its own logical
      * thread, sending packet outs to the switch whenever it's scheduled.
      * *)

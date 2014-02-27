@@ -1,0 +1,77 @@
+body {
+    font-family: Helvetica;
+    background-color: #fcfcfc;
+}
+
+h1,
+h2 {
+    margin-left: 20px;
+}
+
+hr {
+    width: 80%;
+}
+
+.clear {
+    clear: both;
+}
+
+div#canvas {
+    float: left;
+    border: 1px dotted rgba(0, 128, 95, 0.3);
+    width: 760px;
+    height: 580px;
+    margin: 10px;
+}
+
+div#sidebar {
+    float: left;
+    background-color: #eef0ee;
+    width: 380px;
+    height: 580px;
+    margin: 10px;
+}
+
+div#footer {
+    width: 1160px;
+    height: 260px;
+    margin: 10px;
+    padding: 0.01px;
+}
+
+#entity table {
+    text-align: left;
+    width: 80%;
+    margin-left: 10%;
+    margin-right: 10%;
+}
+
+#entity .policy {
+    margin-top: 20px;
+    width: 80%;
+    height: 400px;
+    margin-left: 10%;
+}
+
+td.first {
+    width: 80px;
+    padding-right: 20px;
+    font-variant: small-caps;
+    font-size: 0.8em;
+    color: grey;
+}
+
+/* Visualization */
+svg {
+    float: left;
+}
+
+line.link {
+  fill: none;
+  stroke: black;
+}
+
+.highlight {
+    fill: rgba(0, 20, 196, 0.1);
+    stroke: grey;
+}

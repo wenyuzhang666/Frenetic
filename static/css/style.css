@@ -19,7 +19,7 @@ hr {
 div#canvas {
     float: left;
     border: 1px dotted rgba(0, 128, 95, 0.3);
-    width: 760px;
+    width: 580px;
     height: 580px;
     margin: 10px;
 }
@@ -27,7 +27,7 @@ div#canvas {
 div#sidebar {
     float: left;
     background-color: #eef0ee;
-    width: 380px;
+    width: 540px;
     height: 580px;
     margin: 10px;
 }
@@ -48,9 +48,15 @@ div#footer {
 
 #entity .policy {
     margin-top: 20px;
-    width: 80%;
+    width: 90%;
     height: 400px;
-    margin-left: 10%;
+    margin-left: 5%;
+}
+
+#entity .policy pre {
+    overflow: auto;
+    white-space: pre-wrap;
+    max-height: 400px;
 }
 
 td.first {

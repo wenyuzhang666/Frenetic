@@ -8,6 +8,10 @@
   <meta name="description" content="Frenetic Management Console">
 
   <link rel="stylesheet" href="static/css/style.css?v=1.0">
+  <link href="static/css/themes/github.css" rel="stylesheet" type="text/css">
+  <script src="static/js/rainbow.min.js"></script>
+  <script src="static/js/language/generic.js"></script>
+  <script src="static/js/language/frenetic.js"></script>
 
   <!--[if lt IE 9]>
   <script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
@@ -45,11 +49,12 @@
             d3.text('/switch/' + d.id, function(data) {
               var pol = d3.select('#entity').selectAll('.policy')
                   .data([data]);
-              pol.enter().append('textarea')
-                  .attr('class', 'policy')
-                  .attr('wrap', 'off')
-                  .attr('readonly', 'readonly')
-              pol.text(function(d) { return d; });
+              var pdiv = pol.enter().append('div')
+                  .attr('class', 'policy');
+              var ppre = pdiv.append('pre');
+              var pcode = ppre.append('code')
+                  .attr('data-language', 'frenetic');
+              Rainbow.color(data, 'frenetic', function(colored_data) { pcode.html(colored_data); });
             });
         } else if (d.type === 'host') {
             entries = [
@@ -241,7 +246,7 @@
       }
 
     _network = network()
-        .width(760)
+        .width(580)
         .height(580)
         .on('click', entity);
 

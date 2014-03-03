@@ -207,7 +207,7 @@ module Switch = struct
           Ctl.send_event ctl (LinkUp (e1, e2));
           t in
 
-    let handler t w () : event -> result Deferred.t = fun e ->
+    let handler t w () = (Ctl.events ctl, fun e ->
       (* Transfer all packet_outs from the Clt.t to the pipe passed to the
        * handler. *)
       Deferred.don't_wait_for (Pipe.transfer_id o_r w);
@@ -272,7 +272,7 @@ module Switch = struct
         | HostUp _
         | HostDown _
         | Query _ ->
-          return None in
+          return None) in
 
     let app = create ~pipes:(PipeSet.singleton "probe") default handler in
     (ctl, app)
@@ -288,7 +288,7 @@ module Host = struct
     let default = Seq(Filter(Test(EthType 0x0806)),
                       Mod(Location(Pipe("host")))) in
 
-    let handler t w () : event -> result Deferred.t = fun e ->
+    let handler t w () = (Switch.Ctl.events ctl, fun e ->
       let open Net.Topology in
       match e with
         | PacketIn (_, sw_id, pt_id, bytes, len, buf) ->
@@ -350,7 +350,7 @@ module Host = struct
         | LinkUp _
         | LinkDown _
         | Query _ ->
-          return None in
+          return None) in
 
     create ~pipes:(PipeSet.singleton "host") default handler
 end

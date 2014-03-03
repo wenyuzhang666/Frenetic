@@ -37,8 +37,7 @@ type result = policy option
 type handler = Net.Topology.t ref
              -> packet_out Pipe.Writer.t
              -> unit
-             -> event
-             -> result Deferred.t
+             -> (event Pipe.Reader.t) * (event -> result Deferred.t)
 
 (** [create ?pipes pol handler] returns an [app] that listens to the pipes
     included in [pipes], uses [pol] as the initial default policy to install,
@@ -66,8 +65,7 @@ val run
   -> Net.Topology.t ref
   -> packet_out Pipe.Writer.t
   -> unit
-  -> event
-  -> result Deferred.t
+  -> (event Pipe.Reader.t) * (event -> result Deferred.t)
 
 (** [union ?how app1 app2] returns the union of [app1] and [app2].
 

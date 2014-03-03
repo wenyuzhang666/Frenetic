@@ -57,7 +57,7 @@ let create () =
                 Union(known, Seq(Filter(unknown_pred), default))),
             acc)) in
 
-  let handler t w () e = match e with
+  let handler t w () = (Pipe.of_list[], fun e -> match e with
     | SwitchUp(switch_id) ->
       state := SwitchMap.add !state switch_id MacMap.empty;
       return (Some(gen_pol ()))
@@ -73,6 +73,6 @@ let create () =
       let action = forward switch_id packet in
       Pipe.write w (switch_id, bytes, buf, Some(port_id), [action]) >>= fun _ ->
       return pol 
-    | _ -> return None in
+    | _ -> return None) in
       
   create ~pipes:(PipeSet.singleton "learn") default handler

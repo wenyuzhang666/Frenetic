@@ -271,6 +271,7 @@ module Switch = struct
           return None
         | HostUp _
         | HostDown _
+        | Update
         | Query _ ->
           return None) in
 
@@ -349,6 +350,7 @@ module Host = struct
         | PortUp _
         | LinkUp _
         | LinkDown _
+        | Update
         | Query _ ->
           return None) in
 

@@ -23,7 +23,7 @@ module Net : Network.NETWORK
 (** [app] is an opaque application type.  The user can use constructors and
     combinators defined below to build up complex applications from simple
     parts. *)
-type 'a app
+type app
 
 (** The set of pipe names that an application is listening on. *)
 module PipeSet : Set.S
@@ -34,39 +34,39 @@ type result = policy option
 
 (** [handler] is a function that's used to both create basic reactive [app]s as
     well as run them. The [unit] argument indicates a partial application point. *)
-type 'a handler = Net.Topology.t ref
+type handler = Net.Topology.t ref
              -> packet_out Pipe.Writer.t
              -> unit
-             -> 'a event
+             -> event
              -> result Deferred.t
 
 (** [create ?pipes pol handler] returns an [app] that listens to the pipes
     included in [pipes], uses [pol] as the initial default policy to install,
     and [handler] as the function to handle network events. *)
-val create : ?pipes:PipeSet.t -> policy -> 'a handler -> 'a app
+val create : ?pipes:PipeSet.t -> policy -> handler -> app
 
 (** [create_static pol] returns a static app for the NetKAT syntax tree [pol] *)
-val create_static : policy -> 'a app
+val create_static : policy -> app
 
 (** [create_from_file f] returns a static app from the NetKAT policy contained
     in the file [f]. *)
-val create_from_file : string -> 'a app
+val create_from_file : string -> app
 
 (** [default app] returns the current default policy for the app.
 
     Note that this may not be the same default policy that the user used to
     construct the application. It is the last policy that the application
     generated in response to an event.  *)
-val default : 'a app -> policy
+val default : app -> policy
 
 (** [run app] returns a [handler] that implements [app]. The [unit] argument
  * indicates a partial application point. *)
 val run
-  :  'a app
+  :  app
   -> Net.Topology.t ref
   -> packet_out Pipe.Writer.t
   -> unit
-  -> 'a event
+  -> event
   -> result Deferred.t
 
 (** [union ?how app1 app2] returns the union of [app1] and [app2].
@@ -79,7 +79,7 @@ val run
     execution using the optional [how] argument to sequence them from left to
     right, or to have them run concurrently.
     *)
-val union : ?how:[ `Parallel | `Sequential ] -> 'a app -> 'a app -> 'a app
+val union : ?how:[ `Parallel | `Sequential ] -> app -> app -> app
 
 exception Sequence_error of PipeSet.t * PipeSet.t
 
@@ -90,4 +90,4 @@ exception Sequence_error of PipeSet.t * PipeSet.t
     will raise a [Sequence_error]. If they are disjoint, then the returned app
     will distribute events across the two apps, sequence reactive updates to
     policies, and concatenates the list of [packet_outs] that they produce.  *)
-val seq : 'a app -> 'a app -> 'a app
+val seq : app -> app -> app

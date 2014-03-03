@@ -71,13 +71,13 @@ module Switch = struct
   module Ctl = struct
     module PortSet = Async_NetKAT.Net.Topology.PortSet
 
-    type 'a t = {
-      r_evts : 'a NetKAT_Types.event Pipe.Reader.t;
+    type t = {
+      r_evts : NetKAT_Types.event Pipe.Reader.t;
       (* NB: Do not write with pushback to the event pipe. These events will
        * evetually be fed back into this app, so blocking on the write may cause
        * a deadlock.
        * *)
-      w_evts : 'a NetKAT_Types.event Pipe.Writer.t;
+      w_evts : NetKAT_Types.event Pipe.Writer.t;
       w_outs : NetKAT_Types.packet_out Pipe.Writer.t;
       mutable pending : PortSet.t SwitchMap.t;
       mutable probe : bool;
@@ -207,7 +207,7 @@ module Switch = struct
           Ctl.send_event ctl (LinkUp (e1, e2));
           t in
 
-    let handler t w () : 'a event -> result Deferred.t = fun e ->
+    let handler t w () : event -> result Deferred.t = fun e ->
       (* Transfer all packet_outs from the Clt.t to the pipe passed to the
        * handler. *)
       Deferred.don't_wait_for (Pipe.transfer_id o_r w);
@@ -271,8 +271,7 @@ module Switch = struct
           return None
         | HostUp _
         | HostDown _
-        | Query _
-        | AppEvent _ ->
+        | Query _ ->
           return None in
 
     let app = create ~pipes:(PipeSet.singleton "probe") default handler in
@@ -289,7 +288,7 @@ module Host = struct
     let default = Seq(Filter(Test(EthType 0x0806)),
                       Mod(Location(Pipe("host")))) in
 
-    let handler t w () : 'a event -> result Deferred.t = fun e ->
+    let handler t w () : event -> result Deferred.t = fun e ->
       let open Net.Topology in
       match e with
         | PacketIn (_, sw_id, pt_id, bytes, len, buf) ->
@@ -350,8 +349,7 @@ module Host = struct
         | PortUp _
         | LinkUp _
         | LinkDown _
-        | Query _
-        | AppEvent _ ->
+        | Query _ ->
           return None in
 
     create ~pipes:(PipeSet.singleton "host") default handler

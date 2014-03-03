@@ -221,7 +221,7 @@ type host = Packet.dlAddr * Packet.nwAddr
 type bufferId = Int32.t (* XXX(seliopou): different than SDN_Types *)
 type bytes = Packet.bytes
 
-type 'a event =
+type event =
   | PacketIn of string * switchId * portId * bytes * int * bufferId option
   | Query of string * int64 * int64
   | SwitchUp of switchId
@@ -232,6 +232,5 @@ type 'a event =
   | LinkDown of switch_port * switch_port
   | HostUp of switch_port * host
   | HostDown of switch_port * host
-  | AppEvent of 'a
 
 type packet_out = switchId * bytes * bufferId option * portId option * action list

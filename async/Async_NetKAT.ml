@@ -68,37 +68,37 @@ end)
 exception Sequence_error of PipeSet.t * PipeSet.t
 
 type result = policy option
-type handler = Net.Topology.t ref -> packet_out Pipe.Writer.t -> unit -> event -> result Deferred.t
+type 'a handler = Net.Topology.t ref -> packet_out Pipe.Writer.t -> unit -> 'a event -> result Deferred.t
 
-type app = {
+type 'a app = {
   pipes : PipeSet.t;
-  handler : handler;
+  handler : 'a handler;
   mutable default : policy
 }
 
-let create ?pipes (default : policy) (handler : handler) : app =
+let create ?pipes (default : policy) (handler : 'a handler) : 'a app =
   let pipes = match pipes with
     | None -> PipeSet.empty
     | Some(pipes) -> pipes in
   { pipes; default; handler }
 
-let create_static (pol : policy) : app =
+let create_static (pol : policy) : 'a app =
   create pol (fun _ _ () _ -> return None)
 
-let create_from_file (filename : string) : app =
+let create_from_file (filename : string) : 'a app =
   let pol = In_channel.with_file filename ~f:(fun chan ->
     NetKAT_Parser.program NetKAT_Lexer.token (Lexing.from_channel chan)) in
   create_static pol
 
-let default (a : app) : policy =
+let default (a : 'a app) : policy =
   a.default
 
 let run
-    (a : app)
+    (a : 'a app)
     (t : Net.Topology.t ref)
     (w : packet_out Pipe.Writer.t)
     (_ : unit)
-    : event -> result Deferred.t =
+    : 'a event -> result Deferred.t =
   let a' = a.handler t w () in
   fun e -> match e with
     | PacketIn(p, _, _, _, _, _) when not (PipeSet.mem a.pipes p) ->
@@ -111,7 +111,7 @@ let run
         end;
         m_pol
 
-let union ?(how=`Parallel) (a1 : app) (a2 : app) : app =
+let union ?(how=`Parallel) (a1 : 'a app) (a2 : 'a app) : 'a app =
   { pipes = PipeSet.union a1.pipes a2.pipes
   ; default = Union(a1.default, a2.default)
   ; handler = fun t w () ->
@@ -134,7 +134,7 @@ let union ?(how=`Parallel) (a1 : app) (a2 : app) : app =
           | _ -> raise (Assertion_failed "Async_NetKAT.union: impossible length list")
   }
 
-let seq (a1 : app) (a2: app) : app =
+let seq (a1 : 'a app) (a2: 'a app) : 'a app =
   begin if not PipeSet.(is_empty (inter a1.pipes a2.pipes)) then
     (* In order for the form of composition below, the apps must not be
      * listening on the same pipe for `PacketIn` events. In this case,

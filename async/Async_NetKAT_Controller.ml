@@ -271,21 +271,6 @@ let get_switchids nib =
     | _ -> acc)
   nib []
 
-let handler (t : t) w app =
-  let app' = Async_NetKAT.run app t.nib w () in
-  fun e ->
-    app' e >>= fun m_pol ->
-    match m_pol with
-      | Some (pol) ->
-        Deferred.List.iter (get_switchids !(t.nib)) ~f:(fun sw_id ->
-          update_table_for t sw_id pol)
-      | None ->
-        begin match e with
-          | NetKAT_Types.SwitchUp sw_id ->
-            update_table_for t sw_id (Async_NetKAT.default app)
-          | _ -> return ()
-        end
-
 let start app ?(port=6633) () =
   let open Async_OpenFlow.Platform.Trans in
   Controller.create ~max_pending_connections ~port ()
@@ -336,7 +321,6 @@ let start app ?(port=6633) () =
     (* Build up the application by adding topology discovery into the mix. *)
     let d_ctl, topo = Discovery.create () in
     let app = Async_NetKAT.union ~how:`Sequential topo (Discovery.guard app) in
-    let sdn_events = run stages t (Controller.listen ctl) in
     (* The discovery application itself will generate events, so the actual
      * event stream must be a combination of switch events and synthetic
      * topology discovery events. Pipe.interleave will wait until one of the
@@ -344,6 +328,19 @@ let start app ?(port=6633) () =
      *
      * Whatever happens, happens. Can't stop won't stop.
      * *)
-    let events = Pipe.interleave [Discovery.events d_ctl; sdn_events] in
+    let sdn_events = run stages t (Controller.listen ctl) in
+    let app_events, app_handler = Async_NetKAT.run app t.nib w_out () in
+    let events = Pipe.interleave [app_events; sdn_events] in
 
-    Deferred.don't_wait_for (Pipe.iter events ~f:(handler t w_out app))
+    Deferred.don't_wait_for (Pipe.iter events ~f:(fun e ->
+      app_handler e >>= fun m_pol ->
+      match m_pol with
+        | Some (pol) ->
+          Deferred.List.iter (get_switchids !(t.nib)) ~f:(fun sw_id ->
+            update_table_for t sw_id pol)
+        | None ->
+          begin match e with
+            | NetKAT_Types.SwitchUp sw_id ->
+              update_table_for t sw_id (Async_NetKAT.default app)
+            | _ -> return ()
+          end))

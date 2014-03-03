@@ -13,6 +13,8 @@ let create () =
   let open NetKAT_Types in
   let state = ref SwitchMap.empty in
 
+  let r_evts, w_evts = Pipe.create () in
+
   let learn switch_id port_id packet =
     let ethSrc = packet.Packet.dlSrc in
     let mac_map = SwitchMap.find_exn !state switch_id in
@@ -22,6 +24,12 @@ let create () =
       Log.info ~tags "[learning] switch %Lu: learn %s => %Lu@%lu"
         switch_id (Packet.string_of_mac ethSrc) switch_id (VInt.get_int32 port_id);
       state := SwitchMap.add !state switch_id (MacMap.add mac_map ethSrc port_id);
+      Deferred.don't_wait_for (Clock.after (Time.Span.of_sec 30.0)
+        >>= fun () ->
+        state := SwitchMap.change !state switch_id (function
+          | None -> None
+          | Some(macs) -> Some(MacMap.remove macs ethSrc));
+        Pipe.write w_evts Update);
       true
     end in
 
@@ -57,7 +65,7 @@ let create () =
                 Union(known, Seq(Filter(unknown_pred), default))),
             acc)) in
 
-  let handler t w () e = match e with
+  let handler t w () = (r_evts, fun e -> match e with
     | SwitchUp(switch_id) ->
       state := SwitchMap.add !state switch_id MacMap.empty;
       return (Some(gen_pol ()))
@@ -73,6 +81,8 @@ let create () =
       let action = forward switch_id packet in
       Pipe.write w (switch_id, bytes, buf, Some(port_id), [action]) >>= fun _ ->
       return pol 
-    | _ -> return None in
+    | Update ->
+      return (Some(gen_pol ()))
+    | _ -> return None) in
       
   create ~pipes:(PipeSet.singleton "learn") default handler

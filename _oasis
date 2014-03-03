@@ -31,7 +31,8 @@ Library netcore
     packet,
     topology,
     sexplib,
-    sexplib.syntax
+    sexplib.syntax,
+    yojson
   Modules:
     NetKAT_Lexer,
     NetKAT_Parser,

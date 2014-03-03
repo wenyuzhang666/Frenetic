@@ -35,6 +35,24 @@ type header_val =
   | TCPSrcPort of int16
   | TCPDstPort of int16
 
+let json_to_header_val (json : Yojson.Basic.json) : header_val =
+  let open Yojson.Basic.Util in
+  match to_assoc json with
+  | [("switch", `Int n)] -> Switch (Int64.of_int_exn n)
+  | [("port", `Int n)] -> Location (Physical (Int32.of_int_exn n))
+  | [("pipe", `String s)] -> Location (Pipe s)
+  | [("ethSrc", `Int n)] -> EthSrc (Int64.of_int_exn n)
+  | [("ethDst", `Int n)] -> EthDst (Int64.of_int_exn n)
+  | [("vlan", `Int n)] -> Vlan n
+  | [("vlanPcp", `Int n)] -> VlanPcp n
+  | [("ethType", `Int n)] -> EthType n
+  | [("ipProto", `Int n)] -> IPProto n
+  | [("ip4Src", `Int n)] -> IP4Src (Int32.of_int_exn n, 32) (* TODO(arjun): really? *)
+  | [("ip4Dst", `Int n)] -> IP4Dst (Int32.of_int_exn n, 32) (* TODO(arjun): really? *)
+  | [("tcpSrcPort", `Int n)] -> TCPSrcPort n
+  | [("tcpDstPort", `Int n)] -> TCPDstPort n
+  | _ -> failwith "unexpected json for header_val"
+
 type pred =
   | True
   | False
@@ -43,6 +61,16 @@ type pred =
   | Or of pred * pred
   | Neg of pred
 
+let rec json_to_pred (json : Yojson.Basic.json) : pred =
+  let open Yojson.Basic.Util in
+  match json with
+  | `Bool true -> True
+  | `Bool false -> False
+  | `Assoc [("not", p)] -> Neg (json_to_pred p)
+  | `Assoc [("and", `List [ p1; p2 ])] -> And (json_to_pred p1, json_to_pred p2)
+  | `Assoc [("or", `List [ p1; p2 ])] -> Or (json_to_pred p1, json_to_pred p2)
+  | _ -> Test (json_to_header_val json)
+
 type policy =
   | Filter of pred
   | Mod of header_val
@@ -50,6 +78,15 @@ type policy =
   | Seq of policy * policy
   | Star of policy
   | Link of switchId * portId * switchId * portId
+
+let rec json_to_pol (json : Yojson.Basic.json) : policy =
+  let open Yojson.Basic.Util in
+  match json with
+  | `Assoc [("mod", hv)] -> Mod (json_to_header_val hv)
+  | `Assoc [("union", `List [p1; p2])] -> Union (json_to_pol p1, json_to_pol p2)
+  | `Assoc [("seq", `List [p1; p2])] -> Seq (json_to_pol p1, json_to_pol p2)
+  | `Assoc [("filter", p)] -> Filter (json_to_pred p)
+  | _ -> failwith "unexpected json"
 
 let id = Filter True
 

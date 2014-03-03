@@ -57,7 +57,8 @@
         } else if (d.type === 'host') {
             entries = [
                 ['MAC', d.mac],
-                ['IP', d.ip]
+                ['IP', d.ip],
+                ['Switch Port', d.switch_port]
             ];
             d3.select('#entity').selectAll('.policy').remove()
         }
@@ -250,8 +251,16 @@
 
     d3.json('/topology', function(data) {
       var nodes = d3.values(data.nodes),
-          links = data.links.map(function(d) {
-            return { source : data.nodes[d.src_id], target : data.nodes[d.dst_id] };
+          links = data.links.map(function(e) {
+            var src = data.nodes[e.src_id],
+                dst = data.nodes[e.dst_id];
+            if (src.type == "host") {
+                src.switch_port = e.dst_port;
+            }
+            if (dst.type == "host") {
+                dst.switch_port = e.src_port;
+            }
+            return { source : src, target : dst };
           });
 
       _network

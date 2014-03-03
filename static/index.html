@@ -50,11 +50,9 @@
               var pol = d3.select('#entity').selectAll('.policy')
                   .data([data]);
               var pdiv = pol.enter().append('div')
-                  .attr('class', 'policy');
-              var ppre = pdiv.append('pre');
-              var pcode = ppre.append('code')
-                  .attr('data-language', 'frenetic');
-              Rainbow.color(data, 'frenetic', function(colored_data) { pcode.html(colored_data); });
+                  .attr('class', 'policy')
+                  .append('pre');
+              Rainbow.color(data, 'frenetic', function(colored_data) { pol.select('pre').html(colored_data); });
             });
         } else if (d.type === 'host') {
             entries = [

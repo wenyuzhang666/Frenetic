@@ -271,4 +271,17 @@ type event =
   | HostDown of switch_port * host
   | Update
 
+let switch_port_to_json (sp : switch_port) : Yojson.json =
+  let (sw, pt) = sp in
+  `Assoc [("sw", `Int (Int64.to_int_exn sw));
+          ("pt", `Int (VInt.get_int pt))]
+
+let event_to_json (event : event) : Yojson.json = 
+  let item lbl json = `Assoc [(lbl, json)] in
+  match event with
+  | PortUp sp -> item "portUp" (switch_port_to_json sp)
+  | PortDown sp -> item "portDown" (switch_port_to_json sp)
+  | Update -> item "update" (`Bool true)
+  | _ -> item "update" (`Bool true)
+
 type packet_out = switchId * bytes * bufferId option * portId option * action list

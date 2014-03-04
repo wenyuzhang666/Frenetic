@@ -70,7 +70,8 @@ Library async
   InternalModules:
     Discovery,
     Learning,
-    Server
+    Server,
+    RESTful
   Modules:
     Async_NetKAT,
     Async_NetKAT_Controller

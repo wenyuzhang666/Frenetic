@@ -19,7 +19,17 @@ module Run = struct
 
   let main args =
     match args with
-      | [filename]
+      | ["remote"; host; port] ->
+        let open Async_NetKAT_Controller in
+        let port = Int.of_string port in
+        let pipes = Async_NetKAT.PipeSet.empty in
+        let main () =
+          let learning = Learning.create () in
+          let _ = RESTful.make ~host ~port ~pipes
+                  >>= fun app ->
+                  return (start (Async_NetKAT.seq learning app) ()) in
+          () in
+        never_returns (Scheduler.go_main ~max_num_open_file_descrs:4096 ~main ())
       | ("local" :: [filename]) ->
         let main () =
           let learning = Learning.create () in

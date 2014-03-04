@@ -13,7 +13,7 @@
 			<key>Enabled</key>
 			<integer>0</integer>
 			<key>NetworkName</key>
-			<string>Arjun's MacBook Air</string>
+			<string>Frenetic's Share</string>
 			<key>NetworkPassword</key>
 			<data>
 			</data>
@@ -25,7 +25,7 @@
 		<key>PrimaryInterface</key>
 		<dict>
 			<key>Device</key>
-			<string>en0</string>
+			<string>en1</string>
 			<key>Enabled</key>
 			<integer>0</integer>
 			<key>HardwareKey</key>
@@ -39,6 +39,8 @@
 		<array>
 			<string>en4</string>
 		</array>
+		<key>SharingNetworkNumberStart</key>
+		<string>10.1.1.240</string>
 	</dict>
 </dict>
 </plist>

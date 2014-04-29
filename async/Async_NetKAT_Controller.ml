@@ -269,7 +269,7 @@ let handler
   : (NetKAT_Types.event -> unit Deferred.t) =
   let app' = Async_NetKAT.run app t.nib w () in
   fun e ->
-    app' e >>= fun m_pol ->
+    app' e >>= fun (m_pol, queries) ->
     match m_pol with
       | Some (pol) ->
         Deferred.List.iter (get_switchids !(t.nib)) ~f:(fun sw_id ->
@@ -277,7 +277,7 @@ let handler
       | None ->
         begin match e with
           | NetKAT_Types.SwitchUp sw_id ->
-            update_table_for t sw_id (Async_NetKAT.default app)
+            update_table_for t sw_id (Async_NetKAT.policy app)
           | _ -> return ()
         end
 

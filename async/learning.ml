@@ -75,4 +75,4 @@ let create () =
       return pol 
     | _ -> return None in
       
-  create ~pipes:(PipeSet.singleton "learn") default handler
+  create_without_queries ~pipes:(PipeSet.singleton "learn") default handler

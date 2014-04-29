@@ -29,21 +29,40 @@ type app
 module PipeSet : Set.S
   with type Elt.t = string
 
-(** [result] is the result of a handler, which is just an optional policy. *)
-type result = policy option
+(** [query] is representation of a network query. *)
+type query = string * SDN_Types.switchId option * NetKAT_Types.pred
+
+(** [result] is the result of a handler, which is an optional policy and a list
+ * of queries *)
+type result = policy option * query list
 
 (** [handler] is a function that's used to both create basic reactive [app]s as
     well as run them. The [unit] argument indicates a partial application point. *)
-type handler = Net.Topology.t ref
-             -> (switchId * SDN_Types.pktOut) Pipe.Writer.t
-             -> unit
-             -> event
-             -> result Deferred.t
+type 'a handler = Net.Topology.t ref
+                -> (switchId * SDN_Types.pktOut) Pipe.Writer.t
+                -> unit
+                -> event
+                -> 'a Deferred.t
 
-(** [create ?pipes pol handler] returns an [app] that listens to the pipes
-    included in [pipes], uses [pol] as the initial default policy to install,
-    and [handler] as the function to handle network events. *)
-val create : ?pipes:PipeSet.t -> policy -> handler -> app
+(** [create ?pipes pol queries handler] returns an [app] that listens to the
+ * pipes included in [pipes], uses [pol] as the initial default policy to
+ * install, initially runs [queries], and uses [handler] as the function to
+ * handle network events *)
+val create
+  : ?pipes:PipeSet.t
+  -> policy
+  -> query list
+  -> result handler
+  -> app
+
+(** [create_without_queries ?pipes pol handler] returns an [app] that listens to
+ * the pipes included in [pipes], uses [pol] as the initial default policy to
+ * install, and [handler] as the function to handle network events. *)
+val create_without_queries
+  : ?pipes:PipeSet.t
+  -> policy
+  -> (policy option) handler
+  -> app
 
 (** [create_static pol] returns a static app for the NetKAT syntax tree [pol] *)
 val create_static : policy -> app
@@ -55,12 +74,12 @@ val create_from_string : string -> app
     in the file [f]. *)
 val create_from_file : string -> app
 
-(** [default app] returns the current default policy for the app.
+(** [policy app] returns the current default policy for the app.
 
     Note that this may not be the same default policy that the user used to
     construct the application. It is the last policy that the application
     generated in response to an event.  *)
-val default : app -> policy
+val policy : app -> policy
 
 (** [run app] returns a [handler] that implements [app]. The [unit] argument
  * indicates a partial application point. *)

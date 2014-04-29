@@ -49,7 +49,7 @@ end)
 
 exception Sequence_error of PipeSet.t * PipeSet.t
 
-type query = string * SDN_Types.switchId option * NetKAT_Types.pred
+type query = string * NetKAT_Types.pred
 type result = policy option * query list
 type 'a handler = Net.Topology.t ref -> (switchId * SDN_Types.pktOut) Pipe.Writer.t -> unit -> event -> 'a Deferred.t
 

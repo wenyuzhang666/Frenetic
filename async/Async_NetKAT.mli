@@ -30,7 +30,7 @@ module PipeSet : Set.S
   with type Elt.t = string
 
 (** [query] is representation of a network query. *)
-type query = string * SDN_Types.switchId option * NetKAT_Types.pred
+type query = string * NetKAT_Types.pred
 
 (** [result] is the result of a handler, which is an optional policy and a list
  * of queries *)

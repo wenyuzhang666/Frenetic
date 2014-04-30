@@ -1105,3 +1105,10 @@ let compile =
 let to_table ?(optimize_fall_through=true) t =
   Local_Optimize.remove_shadowed_rules
     (RunTime.to_table t ~optimize_fall_through:optimize_fall_through)
+
+let pred_to_patterns sw pred =
+  let pol = NetKAT_Types.Filter pred in
+  List.filter_map (to_table (of_policy sw pol)) ~f:(fun f ->
+    if f.action = [[[Output(InPort)]]]
+      then Some(f.pattern)
+      else None)

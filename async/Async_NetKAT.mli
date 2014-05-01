@@ -81,6 +81,10 @@ val create_from_file : string -> app
     generated in response to an event.  *)
 val policy : app -> policy
 
+(** [queries app] returns the current list of queries the app would like to
+ * perform. *)
+val queries : app -> query list
+
 (** [run app] returns a [handler] that implements [app]. The [unit] argument
  * indicates a partial application point. *)
 val run

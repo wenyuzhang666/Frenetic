@@ -87,6 +87,9 @@ let create_from_file (filename : string) : app =
 let policy (a : app) : policy =
   a.policy
 
+let queries (a : app) : query list =
+  a.queries
+
 let run
     (a : app)
     (t : Net.Topology.t ref)

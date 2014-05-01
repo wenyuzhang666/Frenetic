@@ -217,7 +217,7 @@ type bytes = Packet.bytes
 
 type event =
   | PacketIn of string * switchId * portId * payload * int
-  | Query of string * int64 * int64
+  | Query of string * pred * int64 * int64
   | SwitchUp of switchId
   | SwitchDown of switchId
   | PortUp of switch_port

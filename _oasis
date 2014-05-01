@@ -64,6 +64,7 @@ Library async
   InternalModules:
     Discovery,
     Learning,
+    Traffic,
     Transaction,
     Query
   Modules:

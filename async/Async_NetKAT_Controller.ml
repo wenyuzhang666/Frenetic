@@ -34,6 +34,7 @@ exception Assertion_failed of string
 
 type t = {
   ctl : Controller.t;
+  txn : Transaction.t;
   nib : Net.Topology.t ref;
   mutable locals : NetKAT_Types.policy SwitchMap.t
 }
@@ -285,9 +286,11 @@ let start app ?(port=6633) () =
   let open Stage in
   Controller.create ~max_pending_connections ~port ()
   >>> fun ctl ->
+    let txn, txn_handler = Transaction.create ctl in
     let t = {
       ctl = ctl;
       nib = ref (Net.Topology.empty ());
+      txn = txn;
       locals = SwitchMap.empty
     } in
 
@@ -308,14 +311,17 @@ let start app ?(port=6633) () =
           Log.flushed ()));
 
     let stages = let open Controller in
-      (local (fun t -> t.ctl)
-        features)
-       >=> (to_event w_out) in
+      (local (fun t -> t.ctl) features)
+        >=> (local (fun t -> t.txn) txn_handler)
+        >=> (to_event w_out) in
 
     (* Build up the application by adding topology discovery into the mix. *)
     let d_ctl, topo = Discovery.create () in
     let app = Async_NetKAT.union ~how:`Sequential topo (Discovery.guard app) in
+
     let sdn_events = run stages t (Controller.listen ctl) in
+    let query_events = Query.every (Time.Span.of_sec 5.0) txn t.nib app in
+
     (* The discovery application itself will generate events, so the actual
      * event stream must be a combination of switch events and synthetic
      * topology discovery events. Pipe.interleave will wait until one of the
@@ -323,6 +329,10 @@ let start app ?(port=6633) () =
      *
      * Whatever happens, happens. Can't stop won't stop.
      * *)
-    let events = Pipe.interleave [Discovery.events d_ctl; sdn_events] in
+    let events =
+      Pipe.interleave [ Discovery.events d_ctl
+                      ; sdn_events
+                      ; query_events
+                      ] in
 
     Deferred.don't_wait_for (Pipe.iter events ~f:(handler t w_out app))

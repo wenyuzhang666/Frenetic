@@ -64,7 +64,8 @@ Library async
   InternalModules:
     Discovery,
     Learning,
-    Transaction
+    Transaction,
+    Query
   Modules:
     Async_NetKAT,
     Async_NetKAT_Controller

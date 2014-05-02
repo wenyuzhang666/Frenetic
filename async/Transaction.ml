@@ -16,8 +16,8 @@ type t = {
 }
 
 let next_xid t =
-  let xid = t.xid in
-  t.xid <- Int32.(xid + 1l);
+  let xid = Int32.(t.xid +1l) in
+  t.xid <- xid;
   xid
 
 (** [send t c_id msg] will send [msg] to the specified client and return an
@@ -25,9 +25,8 @@ let next_xid t =
 let send t c_id (msg : OpenFlow0x01.Message.t) =
   let xid = next_xid t in
   let ivar = Ivar.create () in
-  let xids = ClientTbl.find_exn t.pending c_id in
-  XidTbl.add_exn xids xid ivar;
-  Controller.send t.ctl c_id (next_xid t, msg)
+  XidTbl.add_exn (ClientTbl.find_exn t.pending c_id) xid ivar;
+  Controller.send t.ctl c_id (xid, msg)
   >>| function
     | `Sent _   -> `Sent ivar
     | `Drop exn ->
@@ -67,7 +66,7 @@ let create ?(size=10) (ctl : Controller.t) =
       | None -> ()
       end;
       return [evt]
-    | `Message(c_id, (xid, (msg : OpenFlow0x01.Message.t))) ->
+    | `Message(c_id, (xid, (msg : OpenFlow0x01.Message.t))) when not (xid = 0l) ->
       let xids = ClientTbl.find_exn t.pending c_id in
       begin match XidTbl.find_and_remove xids xid with
       | Some(ivar) ->
@@ -76,6 +75,8 @@ let create ?(size=10) (ctl : Controller.t) =
       | None ->
         return [evt]
       end
+    | `Message _ ->
+      return [evt]
     end
   in
   (t, handler)

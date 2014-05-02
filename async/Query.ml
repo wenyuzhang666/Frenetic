@@ -18,7 +18,7 @@ let every
   (app : Async_NetKAT.app)
   : event Pipe.Reader.t =
   Pipe.init (fun w ->
-    return (Deferred.forever () (fun () ->
+    Deferred.never (Deferred.forever () (fun () ->
       Clock.after t >>= function () ->
       (* First iterate over all the outstanding queries, then iterate over all
        * the switches, collecting responses for each switch to satisfy the
@@ -45,7 +45,8 @@ let every
                 | `Result (StatsReplyMsg (AggregateFlowRep resp)) ->
                   return Int64.(bytes + resp.total_byte_count, packets + resp.total_packet_count)
                 | `Result _ ->
-                  assert false
-      ))
+                  assert false)
+      )
       >>= function (bytes, packets) ->
-      Pipe.write w (Query(query, pred, bytes, packets))))))
+      Pipe.write w (Query(query, pred, bytes, packets)))
+  )))

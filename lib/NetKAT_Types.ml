@@ -126,7 +126,8 @@ module Headers = struct
     let to_string ?init:(init="") ?sep:(sep="=") (x:t) : string =
       let g is_any to_string acc f =
         let v = Field.get f x in
-        if is_any v then acc
+        if is_any v then 
+          acc 
         else
           Printf.sprintf "%s%s%s%s"
             (if acc = init then "" else acc ^ "; ")

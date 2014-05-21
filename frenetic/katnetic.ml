@@ -38,8 +38,10 @@ module Dump = struct
     let with_compile (sw : SDN_Types.switchId) (p : NetKAT_Types.policy) =
       let open NetKAT_LocalCompiler in
       let _ = 
-        Format.printf "@[Compiling switch %Ld [size=%d]...@]%!"
-          sw (NetKAT_Semantics.size p) in
+        Format.printf "@[Compiling switch %Ld [size=%d]@\n%s...@\n@]%!"
+          sw 
+          (NetKAT_Semantics.size p)
+          (NetKAT_Pretty.string_of_policy p) in
       let c_time, i = profile (fun () -> compile sw p) in
       let t_time, t = profile (fun () -> to_table i) in
       let _ = Format.printf "@[Done [ctime=%fs ttime=%fs tsize=%d]@\n@]%!"

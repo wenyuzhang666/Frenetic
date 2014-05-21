@@ -42,7 +42,7 @@ module PrefixTable (F:FIELD) = struct
   type v = F.t with sexp
   type t = (v * bool) list with sexp
 
-  let singleton x = [x,true]
+  let singleton x = [x,true; (0l,0l), false]
 
   let rec compare (a:t) (b:t) =
     let compare_entry (n,b1) (p,b2) =
@@ -518,7 +518,12 @@ module Pattern = struct
   let mk_ethType n = { any with HPN.ethType = PN16.singleton n }
   let mk_ipProto n = { any with HPN.ipProto = PN16.singleton n }
   let mk_ipSrc n = { any with HPN.ipSrc = PTIp.singleton n }
-  let mk_ipDst n = { any with HPN.ipDst = PTIp.singleton n }
+  let mk_ipDst n = 
+    let a,b = n in 
+    let r = { any with HPN.ipDst = PTIp.singleton n } in 
+    Printf.printf "MK_IP_DST %ld %ld = |%s|\n" a b (to_string r);
+    r
+      
   let mk_tcpSrcPort n = { any with HPN.tcpSrcPort = PN16.singleton n }
   let mk_tcpDstPort n = { any with HPN.tcpDstPort = PN16.singleton n }
 
@@ -705,7 +710,7 @@ module Local = struct
       | Some s' ->
         Pattern.Map.add m x (Action.Set.union s s') in
     (* Printf.printf "EXTEND\nM=%s\nX=%s\nS=%s\nR=%s\n" *)
-    (*   (to_string m)  *)
+    (*   (to_string m) *)
     (*   (Pattern.to_string x) *)
     (*   (Action.set_to_string s) *)
     (*   (to_string r); *)
@@ -730,10 +735,10 @@ module Local = struct
     else if Pattern.Map.is_empty q then p
     else 
       let r = intersect Action.Set.union p q in
-      (* Printf.printf "### PAR ###\n%s\n%s\n%s" *)
-      (*   (to_string p) *)
-      (*   (to_string q) *)
-      (*   (to_string r); *)
+      Printf.printf "### PAR ###\n%s\n%s\n%s"
+        (to_string p)
+        (to_string q)
+        (to_string r);
       r
 
   let seq (p:t) (q:t) : t =
@@ -769,10 +774,10 @@ module Local = struct
         ~f:(fun ~key:r1 ~data:s1 acc ->
           let acc' = seq_atom_acts_local r1 s1 q in
           Pattern.Map.merge ~f:merge acc acc') in
-    (* Printf.printf "### SEQ ###\n%s\n%s\n%s" *)
-    (*   (to_string p) *)
-    (*   (to_string q) *)
-    (*   (to_string r); *)
+    Printf.printf "### SEQ ###\n%s\n%s\n%s"
+      (to_string p)
+      (to_string q)
+      (to_string r);
     r
 
   let neg (p:t) : t=
@@ -782,9 +787,9 @@ module Local = struct
           if Action.is_drop s then Action.id
           else if Action.is_id s then Action.drop
           else failwith "neg: not a predicate") in
-    (* Printf.printf "### NEGATE ###\n%s\n%s" *)
-    (*   (to_string p) *)
-    (*   (to_string r); *)
+    Printf.printf "### NEGATE ###\n%s\n%s"
+      (to_string p)
+      (to_string r);
     r
 
   let star (p:t) : t =
@@ -797,9 +802,9 @@ module Local = struct
         loop acc' psucci in
     let p0 = Pattern.Map.singleton Pattern.any Action.id in
     let r = loop p0 p0 in
-    (* Printf.printf "### STAR ###\n%s\n%s" *)
-    (*   (to_string p) *)
-    (*   (to_string r); *)
+    Printf.printf "### STAR ###\n%s\n%s"
+      (to_string p)
+      (to_string r);
     r
 
   let rec of_pred (pr:NetKAT_Types.pred) : t =
@@ -841,6 +846,9 @@ module Local = struct
             Pattern.Set.fold (Pattern.neg x)
               ~init:(Pattern.Map.singleton x Action.id)
               ~f:(fun acc y -> extend y Action.drop acc) in
+          Printf.printf
+            "IN_TEST\n%s\n[%s]\n%s\n"
+            (NetKAT_Pretty.string_of_pred pr) (Pattern.to_string x) (to_string m) ;
           k m
         | NetKAT_Types.And (pr1, pr2) ->
           loop pr1 (fun p1 -> loop pr2 (fun p2 -> k (seq p1 p2)))
@@ -874,7 +882,7 @@ module Local = struct
             | NetKAT_Types.IP4Src (n,m) ->
               Action.mk_ipSrc (n,m)
             | NetKAT_Types.IP4Dst (n,m) ->
-              Action.mk_ipDst (n,m)
+              Action.mk_ipDst (n,m)  
             | NetKAT_Types.TCPSrcPort n ->
               Action.mk_tcpSrcPort n
             | NetKAT_Types.TCPDstPort n ->
@@ -885,12 +893,22 @@ module Local = struct
         | NetKAT_Types.Union (pol1, pol2) ->
           loop pol1 (fun p1 -> loop pol2 (fun p2 -> k (par p1 p2)))
         | NetKAT_Types.Seq (pol1, pol2) ->
-          loop pol1 (fun p1 -> loop pol2 (fun p2 -> k (seq p1 p2)))
+          loop pol1 (fun p1 -> loop pol2 (fun p2 -> 
+            Printf.printf
+              "IN_SEQ\n%s\n%s\n%s\n%s\n" 
+              (NetKAT_Pretty.string_of_policy pol1) (to_string p1) 
+              (NetKAT_Pretty.string_of_policy pol2) (to_string p2);
+            k (seq p1 p2)))
         | NetKAT_Types.Star pol ->
           loop pol (fun p -> k (star p))
         | NetKAT_Types.Link(sw,pt,sw',pt') ->
 	  failwith "Not a local policy" in
-    loop pol (fun p -> p)
+    let r = loop pol (fun p -> p) in 
+    Printf.printf 
+      "*** OF_POLICY ***\n%s\n%s\n"
+      (NetKAT_Pretty.string_of_policy pol)
+      (to_string r);
+    r
 end
 
 module RunTime = struct
@@ -1069,6 +1087,7 @@ module RunTime = struct
 
   let compile (sw:switchId) (pol:NetKAT_Types.policy) : i =
     let pol' = Optimize.specialize_policy sw pol in
+    Printf.printf "pol' = %s\n" (NetKAT_Pretty.string_of_policy pol');
     Local.of_policy pol'
 
   module Dep = Algo.Topological(struct

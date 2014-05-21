@@ -11,6 +11,7 @@ module MacMap = Map.Make(Int64)
 let create () =
   let open Async_NetKAT in
   let open NetKAT_Types in
+  let () = Printf.printf "Welcome to Learning\n%!" in 
   let state = ref SwitchMap.empty in
 
   let learn switch_id port_id packet =
@@ -59,12 +60,15 @@ let create () =
 
   let handler t w () e = match e with
     | SwitchUp(switch_id) ->
+      Printf.printf "Learning Switch Up\n%!";
       state := SwitchMap.add !state switch_id MacMap.empty;
       return (Some(gen_pol ()))
     | SwitchDown(switch_id) ->
+      Printf.printf "Learning Switch Down\n%!";
       state := SwitchMap.remove !state switch_id;
       return (Some(gen_pol ()))
     | PacketIn(_, switch_id, port_id, payload, _) ->
+      Printf.printf "Learning Packet In\n%!";
       let packet = Packet.parse (SDN_Types.payload_bytes payload) in
       let pol = if learn switch_id port_id packet then
          Some(gen_pol ())

@@ -6,9 +6,9 @@ open Core.Std
 (** {2 Basics} *)
 open Packet
 
-type switchId = SDN_Types.switchId
-type portId = SDN_Types.portId
-type payload = SDN_Types.payload
+type switchId = SDN_Types.switchId with sexp
+type portId = SDN_Types.portId with sexp
+type payload = SDN_Types.payload with sexp
 
 (** {2 Policies} *)
 
@@ -30,6 +30,7 @@ type header_val =
   | IP4Dst of nwAddr * int32
   | TCPSrcPort of tpPort
   | TCPDstPort of tpPort
+with sexp
 
 type pred =
   | True
@@ -38,6 +39,7 @@ type pred =
   | And of pred * pred
   | Or of pred * pred
   | Neg of pred
+with sexp
 
 type policy =
   | Filter of pred
@@ -46,6 +48,7 @@ type policy =
   | Seq of policy * policy
   | Star of policy
   | Link of switchId * portId * switchId * portId
+with sexp
 
 let id = Filter True
 
@@ -75,7 +78,7 @@ module Headers = struct
     val compare : t -> t -> int
     val to_string : t -> string
     val equal : t -> t -> bool
-    val is_wild : t -> bool
+    val is_any : t -> bool
   end
 
   module Make =
@@ -124,26 +127,42 @@ module Headers = struct
         ~tcpDstPort:(g TcpDstPort.compare)
 
     let to_string ?init:(init="") ?sep:(sep="=") (x:t) : string =
-      let g is_wild to_string acc f =
+      let g is_any to_string acc f =
         let v = Field.get f x in
-        if is_wild v then acc
+        if is_any v then acc
         else
           Printf.sprintf "%s%s%s%s"
             (if acc = init then "" else acc ^ "; ")
             (Field.name f) sep (to_string (Field.get f x)) in
       Fields.fold
         ~init:init
-        ~location:Location.(g is_wild to_string)
-        ~ethSrc:EthSrc.(g is_wild to_string)
-        ~ethDst:EthDst.(g is_wild to_string)
-        ~vlan:Vlan.(g is_wild to_string)
-        ~vlanPcp:VlanPcp.(g is_wild to_string)
-        ~ethType:EthType.(g is_wild to_string)
-        ~ipProto:IpProto.(g is_wild to_string)
-        ~ipSrc:IpSrc.(g is_wild to_string)
-        ~ipDst:IpDst.(g is_wild to_string)
-        ~tcpSrcPort:TcpSrcPort.(g is_wild to_string)
-        ~tcpDstPort:TcpDstPort.(g is_wild to_string)
+        ~location:Location.(g is_any to_string)
+        ~ethSrc:EthSrc.(g is_any to_string)
+        ~ethDst:EthDst.(g is_any to_string)
+        ~vlan:Vlan.(g is_any to_string)
+        ~vlanPcp:VlanPcp.(g is_any to_string)
+        ~ethType:EthType.(g is_any to_string)
+        ~ipProto:IpProto.(g is_any to_string)
+        ~ipSrc:IpSrc.(g is_any to_string)
+        ~ipDst:IpDst.(g is_any to_string)
+        ~tcpSrcPort:TcpSrcPort.(g is_any to_string)
+        ~tcpDstPort:TcpDstPort.(g is_any to_string)
+
+    let is_any (x:t) : bool = 
+      let g is_any f = is_any (Field.get f x) in 
+      Fields.for_all
+        ~location:Location.(g is_any)
+        ~ethSrc:EthSrc.(g is_any)
+        ~ethDst:EthDst.(g is_any)
+        ~vlan:Vlan.(g is_any)
+        ~vlanPcp:VlanPcp.(g is_any)
+        ~ethType:EthType.(g is_any)
+        ~ipProto:IpProto.(g is_any)
+        ~ipSrc:IpSrc.(g is_any)
+        ~ipDst:IpDst.(g is_any)
+        ~tcpSrcPort:TcpSrcPort.(g is_any)
+        ~tcpDstPort:TcpDstPort.(g is_any)
+
   end
 end
 
@@ -155,19 +174,19 @@ module LocationHeader = struct
     match l with
       | Pipe x -> Printf.sprintf "%s" x
       | Physical n -> Printf.sprintf "%lu" n
-  let is_wild l = false
+  let is_any l = false
 end
 module IntHeader = struct
   include Int
-  let is_wild _ = false
+  let is_any _ = false
 end
 module Int32Header = struct
   include Int32
-  let is_wild _ = false
+  let is_any _ = false
 end
 module Int64Header = struct
   include Int64
-  let is_wild _ = false
+  let is_any _ = false
 end
 
 module HeadersValues =
@@ -208,12 +227,11 @@ end)
 
 type action = SDN_Types.action
 
+type switch_port = switchId * portId with sexp
+type host = Packet.dlAddr * Packet.nwAddr with sexp
 
-type switch_port = switchId * portId
-type host = Packet.dlAddr * Packet.nwAddr
-
-type bufferId = Int32.t (* XXX(seliopou): different than SDN_Types *)
-type bytes = Packet.bytes
+type bufferId = Int32.t with sexp (* XXX(seliopou): different than SDN_Types *)
+type bytes = Packet.bytes with sexp
 
 type event =
   | PacketIn of string * switchId * portId * payload * int
@@ -226,3 +244,4 @@ type event =
   | LinkDown of switch_port * switch_port
   | HostUp of switch_port * host
   | HostDown of switch_port * host
+with sexp

@@ -96,7 +96,11 @@ let specialize_policy sw pol =
       | NetKAT_Types.Union (pol1, pol2) ->
         loop pol1 (fun p1 -> loop pol2 (fun p2 -> k (mk_union p1 p2)))
       | NetKAT_Types.Seq (pol1, pol2) ->
-        loop pol1 (fun p1 -> loop pol2 (fun p2 -> k (mk_seq p1 p2)))
+        loop pol1 (fun p1 ->
+          begin match p1 with (* ka-zero-seq *)
+          | NetKAT_Types.Filter NetKAT_Types.False -> p1
+          | _ -> loop pol2 (fun p2 -> k (mk_seq p1 p2))
+          end)
       | NetKAT_Types.Star pol ->
         loop pol (fun p -> k (mk_star p))
       | NetKAT_Types.Link(sw,pt,sw',pt') ->

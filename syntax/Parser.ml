@@ -92,6 +92,8 @@ EXTEND Gram
 
   nk_pol_atom: [[
       "("; p = nk_pol; ")" -> <:expr<$p$>>
+    | "id" -> <:expr<NetKAT_Types.Filter NetKAT_Types.True>>
+    | "drop" -> <:expr<NetKAT_Types.Filter NetKAT_Types.False>>
     | "filter"; a = nk_pred -> <:expr<NetKAT_Types.Filter $a$>>
     | "switch"; ":="; sw = nk_int64 ->
         <:expr<NetKAT_Types.(Mod (Switch $sw$))>>

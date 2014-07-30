@@ -17,7 +17,7 @@ type token =
   | INT32 of string
   | INT64 of string
   | IP4ADDR of string
-  | ANTIQUOT of string * string
+  | ANTIQUOT of string
   | EOI
 
 module Token =
@@ -35,7 +35,7 @@ struct
       | INT s -> sf "INT %s" s
       | INT32 s -> sf "INT32 %s" s
       | INT64 s -> sf "INT64 %s" s
-      | ANTIQUOT (n, s) -> sf "ANTIQUOT %s: %S" n s
+      | ANTIQUOT s -> sf "ANTIQUOT %s" s
       | EOI             -> sf "EOI"
 
   let print ppf x = Format.pp_print_string ppf (to_string x)
@@ -117,31 +117,30 @@ let regexp decbyte = (['0'-'9'] ['0'-'9'] ['0'-'9']) | (['0'-'9'] ['0'-'9']) | [
 let regexp newline = ('\010' | '\013' | "\013\010")
 let regexp blank = [' ' '\009']
 
-let illegal c = error c "Illegal character"
+let illegal c = error c "Illegal character in NetKAT expression"
 
 let rec token c = lexer
+  | ">>" -> EOI
   | eof -> EOI
 
   | newline -> next_line c; token c c.lexbuf
   | blank+ -> token c c.lexbuf
-  | decbyte '.' decbyte '.' decbyte '.' decbyte -> IP4ADDR (L.utf8_lexeme c.lexbuf)
-  | (hexnum | decnum)  -> INT (L.utf8_lexeme c.lexbuf)
-  | (hexnum | decnum) 'l' -> INT32 (L.utf8_lexeme c.lexbuf)
-  | (hexnum | decnum) 'L' -> INT64 (L.utf8_lexeme c.lexbuf)
+  | decbyte '.' decbyte '.' decbyte '.' decbyte -> IP4ADDR (L.latin1_lexeme c.lexbuf)
+  | (hexnum | decnum)  -> INT (L.latin1_lexeme c.lexbuf)
+  | (hexnum | decnum) 'l' -> INT32 (L.latin1_lexeme c.lexbuf)
+  | (hexnum | decnum) 'L' -> INT64 (L.latin1_lexeme c.lexbuf)
+  | "$" ident ->
+     ANTIQUOT( L.latin1_sub_lexeme c.lexbuf 1 (L.lexeme_length c.lexbuf - 1))
   | [ "()!+;=*" ] | ":=" | "true" | "false" | "switch" | "port" | "vlan"
     | "vlanPcp" | "ethType" | "ipProto" | "tcpSrcPort" | "tcpDstPort"
     | "ethSrc" | "ethDst" | "ip4Src"| "ip4Dst" | "&&" | "||"  | "id"
     | "drop" | "if" | "then" | "else" ->
-      KEYWORD (L.utf8_lexeme c.lexbuf)
-
-  | '$' _+ '$' ->
-     ANTIQUOT("", L.latin1_sub_lexeme c.lexbuf 1 (L.lexeme_length c.lexbuf - 2))
-
+      KEYWORD (L.latin1_lexeme c.lexbuf)
   | _ -> illegal c
 
 
 let mk () start_loc cs =
-  let enc = ref Ulexing.Utf8 in
+  let enc = ref Ulexing.Latin1 in
   let lb = L.from_var_enc_stream enc cs in
   let c = {
     loc        = start_loc;

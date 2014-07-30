@@ -5,7 +5,7 @@ module Q = Syntax.Quotation
 let nk_eoi = Parser.Gram.Entry.mk "nk_eoi"
 
 EXTEND Parser.Gram
-  nk_eoi: [ [ x = Parser.nk_pol; `EOI -> x ] ];
+  nk_eoi: [ [ x = Parser.nk_pol; `MyLexer.EOI -> x ] ];
 END
 
 let parse_netkat loc _ s =

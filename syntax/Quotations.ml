@@ -1,5 +1,5 @@
 open Camlp4.PreCast
-
+open MyLexer
 module Q = Syntax.Quotation
 
 let nk_eoi = Parser.Gram.Entry.mk "nk_eoi"

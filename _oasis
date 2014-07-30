@@ -57,7 +57,8 @@ Library syntax
     ipaddr
   Modules:
     Parser,
-    Quotations
+    Quotations,
+    MyLexer
   XMETAType: syntax
   XMETARequires: camlp4, ulex, ipaddr
   XMETADescription: Syntax extension writing NetKAT expressions

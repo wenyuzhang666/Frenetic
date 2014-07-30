@@ -22,14 +22,14 @@ let nk_ipv4 = Gram.Entry.mk "nk_ipv4"
 EXTEND Gram
 
   nk_int64: [[
-      n = INT -> <:expr<Int64.of_int_exn (int_of_string $`str:n$)>>
-    | n = INT64 -> <:expr<Int64.of_string $`str:n$>>
+      n = INT -> <:expr<Core.Std.Int64.of_int_exn (int_of_string $`str:n$)>>
+    | n = INT64 -> <:expr<Core.Std.Int64.of_string $`str:n$>>
     | `ANTIQUOT ("", s) -> AQ.parse_expr _loc s
   ]];
 
   nk_int32: [[
-      n = INT -> <:expr<Int32.of_int_exn (int_of_string $`str:n$)>>
-    | n = INT32 -> <:expr<Int32.of_string $`str:n$>>
+      n = INT -> <:expr<Core.Std.Int32.of_int_exn (int_of_string $`str:n$)>>
+    | n = INT32 -> <:expr<Core.Std.Int32.of_string $`str:n$>>
     | `ANTIQUOT ("", s) -> AQ.parse_expr _loc s
   ]];
 
@@ -39,8 +39,8 @@ EXTEND Gram
   ]];
 
   nk_ipv4: [[
-      n1 = nk_int; "."; n2 = nk_int; "."; n3 = nk_int; "."; n4 = nk_int ->
-      <:expr<logor (shift_left $n1$ 24) (logor (shift_left $n2$ 16) (loger (shift_left $n3$ 8) $n4$))>>
+      n = STRING ->
+      <:expr<Ipaddr.V4.(to_int32 (of_string_exn $`str:n$))>>
    | `ANTIQUOT ("", s) -> AQ.parse_expr _loc s
   ]];
 
@@ -70,9 +70,9 @@ EXTEND Gram
     | "ethDst"; ":="; n = nk_int64 ->
         <:expr<NetKAT_Types.(Test (EthDst $n$))>>
     | "ip4Src"; "="; n = nk_ipv4 ->
-        <:expr<NetKAT_Types.(Test (IP4Src $n$))>>
+        <:expr<NetKAT_Types.(Test (IP4Src ($n$,32l)))>>
     | "ip4Dst"; "="; n = nk_ipv4 ->
-        <:expr<NetKAT_Types.(Test (IP4Dst $n$))>>
+        <:expr<NetKAT_Types.(Test (IP4Dst ($n$, 32l)))>>
     | `ANTIQUOT ("", s) -> AQ.parse_expr _loc s
   ]];
 
@@ -144,8 +144,8 @@ EXTEND Gram
   nk_pol_cond : [[
       p = nk_pol_union -> <:expr<$p$>>
     | "if"; a = nk_pred;
-      "then"; p = nk_pol_union;
-      "else"; q = nk_pol_union ->
+      "then"; p = nk_pol_cond;
+      "else"; q = nk_pol_cond ->
       <:expr<NetKAT_Types.(Union(Seq(Filter $a$, $p$), Seq(Filter (Neg $a$), $q$)))>>
   ]];
 

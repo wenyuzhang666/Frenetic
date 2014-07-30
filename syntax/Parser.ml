@@ -22,12 +22,14 @@ let nk_ipv4 = Gram.Entry.mk "nk_ipv4"
 EXTEND Gram
 
   nk_int64: [[
-      n = INT64 -> <:expr<Int64.of_string $`str:n$>>
+      n = INT -> <:expr<Int64.of_int_exn (int_of_string $`str:n$)>>
+    | n = INT64 -> <:expr<Int64.of_string $`str:n$>>
     | `ANTIQUOT ("", s) -> AQ.parse_expr _loc s
   ]];
 
   nk_int32: [[
-      n = INT32 -> <:expr<Int32.of_string $`str:n$>>
+      n = INT -> <:expr<Int32.of_int_exn (int_of_string $`str:n$)>>
+    | n = INT32 -> <:expr<Int32.of_string $`str:n$>>
     | `ANTIQUOT ("", s) -> AQ.parse_expr _loc s
   ]];
 

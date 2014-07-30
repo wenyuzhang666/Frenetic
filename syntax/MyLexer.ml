@@ -106,8 +106,8 @@ let next_line c =
 let error c s = Loc.raise (current_loc c) (Error.E s)
 
 let regexp identinit =
-  ['A'-'Z' 'a'-'z' '\192'-'\214' '\216'-'\246' '\248'-'\255' ]
-let regexp identchar = (identinit | ['_' '\'' '0'-'9' ])
+  ['A'-'Z' 'a'-'z' '_' ]
+let regexp identchar = (identinit | [".'_" ] | [ '0'-'9' ])
 let regexp ident = identinit identchar*
 let regexp hex = ['0'-'9''a'-'f''A'-'F']
 let regexp hexnum = '0' 'x' hex+
@@ -121,8 +121,6 @@ let illegal c = error c "Illegal character in NetKAT expression"
 
 let rec token c = lexer
   | ">>" -> EOI
-  | eof -> EOI
-
   | newline -> next_line c; token c c.lexbuf
   | blank+ -> token c c.lexbuf
   | decbyte '.' decbyte '.' decbyte '.' decbyte -> IP4ADDR (L.latin1_lexeme c.lexbuf)

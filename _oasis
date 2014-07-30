@@ -86,7 +86,8 @@ Library async
     Txn
   Modules:
     Async_NetKAT,
-    Async_NetKAT_Controller
+    Async_NetKAT_Controller,
+    NetKAT
 
 Library quickcheck
   Findlibparent: netkat

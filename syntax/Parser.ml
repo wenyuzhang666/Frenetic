@@ -141,10 +141,10 @@ EXTEND Gram
 
   nk_pol_cond : [[
       p = nk_pol_union -> <:expr<$p$>>
-    | "if"; a = nk_pred; 
-      "then"; p = nk_pol_union; 
-      "else"; q = nk_pol_union -> 
-      <:expr<NetKAT_Types.Union(NetKAT_Types.Seq($a$, $p$), NetKAT_Types.Seq(NetKAT_Types.Neg($a$, $q$)))>>
+    | "if"; a = nk_pred;
+      "then"; p = nk_pol_union;
+      "else"; q = nk_pol_union ->
+      <:expr<NetKAT_Types.(Union(Seq(Filter $a$, $p$), Seq(Filter (Neg $a$), $q$)))>>
   ]];
 
   nk_pol : [[

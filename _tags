@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: c785e6ed5fe2afc87defc4ea1930b6c6)
+# DO NOT EDIT (digest: a830232629b9ee3c82c2648b1c90313d)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -29,6 +29,8 @@
 <syntax/*.ml{,i}>: package(camlp4.extend)
 <syntax/*.ml{,i}>: package(camlp4.lib)
 <syntax/*.ml{,i}>: package(camlp4.quotations.o)
+<syntax/*.ml{,i}>: package(ipaddr)
+<syntax/*.ml{,i}>: package(ulex)
 # Library async
 "async/async.cmxs": use_async
 <async/*.ml{,i}>: package(async)

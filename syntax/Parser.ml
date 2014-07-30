@@ -1,7 +1,8 @@
 open Camlp4.PreCast
 
 module AQ = Syntax.AntiquotSyntax
-
+module L = Ulexing
+module Z = Ipaddr
 module Gram = MakeGram(Lexer)
 
 let nk_pred = Gram.Entry.mk "nk_pred"
@@ -40,7 +41,8 @@ EXTEND Gram
 
   nk_ipv4: [[
       n = STRING ->
-      <:expr<Ipaddr.V4.(to_int32 (of_string_exn $`str:n$))>>
+      let ip = Ipaddr.V4.(to_int32 (of_string_exn n)) in
+      <:expr<$`int32:ip$>>
    | `ANTIQUOT ("", s) -> AQ.parse_expr _loc s
   ]];
 

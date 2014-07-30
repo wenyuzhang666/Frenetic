@@ -15,6 +15,6 @@ let parse_netkat loc _ s =
   Camlp4_config.antiquotations := q;
   result
 
-let () = 
+let () =
   Q.add "netkat" Q.DynAst.expr_tag parse_netkat;
   Q.default := "netkat";

@@ -52,12 +52,14 @@ Library syntax
   BuildDepends:
     camlp4.lib,
     camlp4.extend,
-    camlp4.quotations.o
+    camlp4.quotations.o,
+    ulex,
+    ipaddr
   Modules:
     Parser,
     Quotations
   XMETAType: syntax
-  XMETARequires: camlp4
+  XMETARequires: camlp4, ulex, ipaddr
   XMETADescription: Syntax extension writing NetKAT expressions
 
 Library async

@@ -8,11 +8,12 @@ let nk_pred = Gram.Entry.mk "nk_pred"
 let nk_pred_atom = Gram.Entry.mk "nk_pred_atom"
 let nk_pred_and = Gram.Entry.mk "nk_pred_and"
 let nk_pred_or = Gram.Entry.mk "nk_pred_or"
+let nk_pol = Gram.Entry.mk "nk_pol"
 let nk_pol_atom = Gram.Entry.mk "nk_pol_atom"
 let nk_pol_seq = Gram.Entry.mk "nk_pol_seq"
 let nk_pol_star = Gram.Entry.mk "nk_pol_star"
 let nk_pol_union = Gram.Entry.mk "nk_pol_union"
-let nk_pol = Gram.Entry.mk "nk_pol"
+let nk_pol_cond = Gram.Entry.mk "nk_pol_cond"
 let nk_int64 = Gram.Entry.mk "nk_int64"
 let nk_int32 = Gram.Entry.mk "nk_int32"
 let nk_int = Gram.Entry.mk "nk_int"
@@ -136,8 +137,16 @@ EXTEND Gram
       <:expr<NetKAT_Types.Union ($p$, $q$)>>
   ]];
 
+  nk_pol_cond : [[
+      p = nk_pol_union -> <:expr<$p$>>
+    | "if"; a = nk_pred; 
+      "then"; p = nk_pol_union; 
+      "else"; q = nk_pol_union -> 
+      <:expr<NetKAT_Types.Union(NetKAT_Types.Seq($a$, $p$), NetKAT_Types.Seq(NetKAT_Types.Neg($a$, $q$)))>>
+  ]];
+
   nk_pol : [[
-    p = nk_pol_union -> <:expr<$p$>>
+    p = nk_pol_cond -> <:expr<$p$>>
   ]];
 
 END

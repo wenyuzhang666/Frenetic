@@ -476,16 +476,31 @@ let send_pkt_out (ctl : Controller.t) (sw_id, pkt_out) =
 
 (* Start the controller, running the given application.
  * *)
-let start app ?(port=6633) ?(update=`BestEffort) ?(policy_queue_size=0) () =
+let start app ?(port=6633)
+    ?(update=`BestEffort)
+    ?(discovery=true)
+    ?(policy_queue_size=0) () =
   let open Stage in
   Controller.create ~max_pending_connections ~port ()
   >>> fun ctl ->
-    (* Build up the application by adding topology discovery into the mix. Make
-     * the evaluation sequential so that the application can benefit from any
-     * topology updates caused by the network event.
-     * *)
-    let d_ctl, topo = Discovery.create () in
-    let app = Async_NetKAT.union ~how:`Sequential topo (Discovery.guard app) in
+    let app, mk_events = if discovery then
+      (* Build up the application by adding topology discovery into the mix. Make
+       * the evaluation sequential so that the application can benefit from any
+       * topology updates caused by the network event.
+       *
+       * Along with the new application, return a function that will combine the
+       * topology discovery events with the othe network events that the
+       * controller intends to surface to the user.
+       * *)
+      let d_ctl, topo = Discovery.create () in
+      let app = Async_NetKAT.union ~how:`Sequential topo (Discovery.guard app) in
+      (app, fun es -> Pipe.interleave [Discovery.events d_ctl; es])
+    else
+      (* With topology discovery turned off, there is nothing to do to the
+       * application, nor to the Pipe.t of network events.
+       * *)
+      (app, fun es -> es)
+    in
 
     (* Create the controller struct to contain all the state of the controller.
      * *)
@@ -517,20 +532,13 @@ let start app ?(port=6633) ?(update=`BestEffort) ?(policy_queue_size=0) () =
       let events   = to_event s_pkt_out in
       features >=> txns >=> events in
 
-    (* Initialize the application to produce an event callback and
-     * Pipe.Reader.t's for packet out messages and policy updates.
+    (* Run the stages comprising the controller and combine the resultant
+     * Pipe.Reader.t with the topology discovery events by calling mk_events
+     * with the pipe. The final result will be a Pipe.Reader.t with all
+     * the network and topology disocovery events that the user wishes to be
+     * notified of.
      * *)
-    let recv, callback = Async_NetKAT.run t.app t.nib () in
-
-    (* The discovery application itself will generate events, so the actual
-     * event stream must be a combination of switch events and synthetic
-     * topology discovery events. Pipe.interleave will wait until one of the
-     * pipes is readable, take a batch, and send it along.
-     *
-     * Whatever happens, happens. Can't stop won't stop.
-     * *)
-    let network_events = run stages t (Controller.listen ctl) in
-    let events = Pipe.interleave [Discovery.events d_ctl; network_events] in
+    let events = mk_events (run stages t (Controller.listen ctl)) in
 
     (* Pick a method for updating the network. Each method needs to be able to
      * implement a policy across the entire network as well as handle new
@@ -563,6 +571,11 @@ let start app ?(port=6633) ?(update=`BestEffort) ?(policy_queue_size=0) () =
 
       implement_policy t (Queue.get q (len - 1))
     in
+
+    (* Initialize the application to produce an event callback and
+     * Pipe.Reader.t's for packet out messages and policy updates.
+     * *)
+    let recv, callback = Async_NetKAT.run t.app t.nib () in
 
     (* This is the main event handler for the controller. First it sends
      * events to the application callback. Then it checks to see if the event

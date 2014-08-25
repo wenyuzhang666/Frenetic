@@ -2,7 +2,7 @@ module Run = struct
   open Core.Std
   open Async.Std
 
-  let main update learn policy_queue_size filename =
+  let main update learn no_discovery policy_queue_size filename =
     let open NetKAT_LocalCompiler in
     let main () =
       let static = match filename with
@@ -13,7 +13,8 @@ module Run = struct
         then Async_NetKAT.seq static (Learning.create ())
         else static
       in
-      Async_NetKAT_Controller.start ~update ?policy_queue_size app () in
+      let discovery = not (no_discovery) in
+      Async_NetKAT_Controller.start ~update ~discovery ?policy_queue_size app () in
     never_returns (Scheduler.go_main ~max_num_open_file_descrs:4096 ~main ())
 end
 
@@ -101,6 +102,10 @@ let run_cmd : unit Cmdliner.Term.t * Cmdliner.Term.info =
     let doc = "enable per-switch L2 learning" in
     Arg.(value & flag & info ["learn"] ~doc)
   in
+  let no_discovery =
+    let doc = "disable topology and host discovery" in
+    Arg.(value & flag & info ["disable-discovery"] ~doc)
+  in
   let policy =
     let doc = "file containing a static NetKAT policy" in
     Arg.(value & (pos 0 (some file) None) & info [] ~docv:"FILE" ~doc)
@@ -111,7 +116,7 @@ let run_cmd : unit Cmdliner.Term.t * Cmdliner.Term.info =
     Arg.(value & opt (some int) None & info ["policy-queue-size"] ~docv:"SIZE" ~doc)
   in
   let doc = "start a controller that will serve the static policy" in
-  Term.(pure Run.main $ update $ learn $ policy_queue_size $ policy),
+  Term.(pure Run.main $ update $ learn $ no_discovery $ policy_queue_size $ policy),
   Term.info "run" ~doc
 
 let dump_cmd : unit Cmdliner.Term.t * Cmdliner.Term.info =

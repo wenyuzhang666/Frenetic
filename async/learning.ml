@@ -70,6 +70,8 @@ let create () =
          Some(gen_pol ())
       else 
          None in
+      Log.of_lazy ~tags ~level:`Info (lazy (Printf.sprintf
+        "[learning] policy: %s" (match pol with None -> "_" | Some p -> NetKAT_Pretty.string_of_policy p)));
       let action = forward switch_id packet in
       Pipe.write w (switch_id, (payload, Some(port_id), [action])) >>= fun _ ->
       return pol 

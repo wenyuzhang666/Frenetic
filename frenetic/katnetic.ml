@@ -5,6 +5,11 @@ module Run = struct
   let main update learn no_discovery policy_queue_size filename =
     let open NetKAT_LocalCompiler in
     let main () =
+      if no_discovery && update = `PerPacketConsistent then begin
+        Printf.eprintf "katnetic: \
+          consistent updates require topology discovery to be enabled.\n%!";
+          Deferred.don't_wait_for (exit 1)
+      end;
       let static = match filename with
       | None   -> Async_NetKAT.create_from_string "filter *"
       | Some f -> Async_NetKAT.create_from_file f
@@ -14,7 +19,8 @@ module Run = struct
         else static
       in
       let discovery = not (no_discovery) in
-      Async_NetKAT_Controller.start ~update ~discovery ?policy_queue_size app () in
+      Async_NetKAT_Controller.start ~update ~discovery ?policy_queue_size app ()
+    in
     never_returns (Scheduler.go_main ~max_num_open_file_descrs:4096 ~main ())
 end
 

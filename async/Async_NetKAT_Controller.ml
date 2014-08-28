@@ -474,7 +474,8 @@ let send_pkt_out (ctl : Controller.t) (sw_id, pkt_out) =
         if not (_exn = Not_found) then
           Printf.eprintf "%s\n%!" (Exn.to_string _exn)
 
-(* Start the controller, running the given application.
+(* See comment in the .mli file for a note on the behavior of configuration
+ * option combinations.
  * *)
 let start app ?(port=6633)
     ?(update=`BestEffort)
@@ -550,14 +551,14 @@ let start app ?(port=6633)
           (fun t pol -> implement_policy t.ctl !(t.nib) pol),
           (fun t sw_id pol -> bring_up_switch t.ctl sw_id pol))
       | `PerPacketConsistent ->
-        (* XXX(seliopou): budget has to be big, otherwise consistent updates will
-         * lead to deadlocks where event processing is blocked on a table update,
-         * but the table update can't complete until an event, specifically a
-         * barrier reply, is processed.
+        (* XXX(seliopou): budget has to be big, otherwise consistent updates
+         * will lead to deadlocks where event processing is blocked on a table
+         * update, but the table update can't complete until an event,
+         * specifically a barrier reply, is processed.
          *
-         * This and other parameters need to be tweaked. This'll happen in the app
-         * branch. For now, the parameter is set so that the controller can manage a
-         * topo,2,3 and achieve connectivity with --learn enabled.
+         * This and other parameters need to be tweaked. This'll happen in the
+         * app branch. For now, the parameter is set so that the controller can
+         * manage a topo,2,3 and achieve connectivity with --learn enabled.
          *)
         Pipe.set_size_budget events 50;
         PerPacketConsistent.(implement_policy, bring_up_switch)

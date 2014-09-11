@@ -480,13 +480,6 @@ let start app ?(port=6633) ?(update=`BestEffort) ?(policy_queue_size=0) () =
   let open Stage in
   Controller.create ~max_pending_connections ~port ()
   >>> fun ctl ->
-    (* Build up the application by adding topology discovery into the mix. Make
-     * the evaluation sequential so that the application can benefit from any
-     * topology updates caused by the network event.
-     * *)
-    let d_ctl, topo = Discovery.create () in
-    let app = Async_NetKAT.union ~how:`Sequential topo (Discovery.guard app) in
-
     (* Create the controller struct to contain all the state of the controller.
      * *)
     let t = {
@@ -515,7 +508,9 @@ let start app ?(port=6633) ?(update=`BestEffort) ?(policy_queue_size=0) () =
       let features = local (fun t -> t.ctl) Controller.features in
       let txns     = local (fun t -> t.txn) Txn.stage in
       let events   = to_event s_pkt_out in
-      features >=> txns >=> events in
+      let switches = local (fun t -> t.nib) Discovery.NSwitch.stage in
+      features >=> txns >=> events >=> switches
+    in
 
     (* Initialize the application to produce an event callback and
      * Pipe.Reader.t's for packet out messages and policy updates.
@@ -529,8 +524,7 @@ let start app ?(port=6633) ?(update=`BestEffort) ?(policy_queue_size=0) () =
      *
      * Whatever happens, happens. Can't stop won't stop.
      * *)
-    let network_events = run stages t (Controller.listen ctl) in
-    let events = Pipe.interleave [Discovery.events d_ctl; network_events] in
+    let events = run stages t (Controller.listen ctl) in
 
     (* Pick a method for updating the network. Each method needs to be able to
      * implement a policy across the entire network as well as handle new

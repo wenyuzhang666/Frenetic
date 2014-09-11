@@ -4,6 +4,27 @@ open Async.Std
 
 exception Assertion_failed of string
 
+module NSwitch = struct
+  module Log = Async_OpenFlow.Log
+  let tags = [("netkat", "topology.switch")]
+
+  open NetKAT_Types
+  open Async_NetKAT
+
+  let stage nib e =
+    let open Net.Topology in
+    begin match e with
+    | SwitchUp sw_id ->
+      Log.info ~tags "[topology.switch] ↑ { switch = %Lu }" sw_id;
+      nib := fst (add_vertex !nib (Switch sw_id));
+    | SwitchDown sw_id ->
+      Log.info ~tags "[topology.switch] ↓ { switch = %Lu }" sw_id;
+      nib := remove_vertex !nib (vertex_of_label !nib (Switch sw_id));
+    | _ -> ()
+    end;
+    return [e]
+end
+
 module Switch = struct
   module Log = Async_OpenFlow.Log
   let tags = [("netkat", "topology.switch")]

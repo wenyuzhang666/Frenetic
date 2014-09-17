@@ -13,7 +13,7 @@ type payload = SDN_Types.payload with sexp
 (** {2 Policies} *)
 
 type location =
-  | Physical of int32
+  | Physical of portId
   | Pipe of string
   with sexp
 
@@ -41,13 +41,17 @@ type pred =
   | Neg of pred
   with sexp
 
+type reg = 
+  | Random 
+  | Live of portId
+
 type policy =
   | Filter of pred
   | Mod of header_val
   | Union of policy * policy
   | Seq of policy * policy
   | Star of policy
-  | Link of switchId * portId * switchId * portId
+  | Cond of cond * policy * policy
   with sexp
 
 let id = Filter True

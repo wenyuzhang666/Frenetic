@@ -59,6 +59,7 @@ module Formatting = struct
   type policy_context = 
     | SEQ_L | SEQ_R 
     | PAR_L | PAR_R 
+    | COND_PORT
     | STAR 
     | PAREN
 
@@ -90,9 +91,17 @@ module Formatting = struct
           | SEQ_L -> fprintf fmt "@[%a;@ %a@]" (pol SEQ_L) p1 (pol SEQ_R) p2
           | _ -> fprintf fmt "@[(@[%a;@ %a@])@]" (pol SEQ_L) p1 (pol SEQ_R) p2
         end
-      | Link (sw,pt,sw',pt') ->
-        fprintf fmt "@[%Lu@@%lu =>@ %Lu@@%lu@]"
-          sw pt sw' pt'
+      | CondPort(pt, p1, p2) -> 
+        begin 
+          match cxt with 
+          | PAREN
+          | PAR_L
+          | PAR_R
+          | COND_PORT -> 
+            fprintf fmt "@[up(%ld)@ ?@ %a@ :@ %a@]" pt (pol PAREN) p1 (pol COND_PORT) p2
+          | _ -> 
+            fprintf fmt "@[(@[up(%ld)@ ?@ %a@ :@ %a@])@]" pt (pol PAREN) p1 (pol COND_PORT) p2
+        end
 end
   
 let format_policy = Formatting.pol Formatting.PAREN
@@ -106,7 +115,7 @@ let string_of_pred = Util.make_string_of format_pred
 let rec pretty_assoc (p : policy) : policy = match p with
   | Filter _ -> p
   | Mod _ -> p
-  | Link _ -> p
+  | CondPort(pt, p1, p2) -> CondPort(pt,pretty_assoc p1, pretty_assoc p2)
   | Union (p1, p2) -> pretty_assoc_par p
   | Seq (p1, p2) -> pretty_assoc_seq p
   | Star p' -> Star (pretty_assoc p')

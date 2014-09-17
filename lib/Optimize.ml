@@ -42,6 +42,9 @@ let mk_union pol1 pol2 =
     | _ ->
       NetKAT_Types.Union(pol1,pol2)
 
+let mk_cond_port pt pol1 pol2 = 
+  NetKAT_Types.CondPort(pt, pol1, pol2)
+
 let mk_seq pol1 pol2 =
   match pol1, pol2 with
     | NetKAT_Types.Filter NetKAT_Types.True, _ ->
@@ -99,6 +102,6 @@ let specialize_policy sw pol =
         loop pol1 (fun p1 -> loop pol2 (fun p2 -> k (mk_seq p1 p2)))
       | NetKAT_Types.Star pol ->
         loop pol (fun p -> k (mk_star p))
-      | NetKAT_Types.Link(sw,pt,sw',pt') ->
-	failwith "Not a local policy" in
+      | NetKAT_Types.CondPort(pt, pol1, pol2) -> 
+        loop pol1 (fun p1 -> loop pol2 (fun p2 -> k (mk_cond_port pt p1 p2))) in 
   loop pol (fun x -> x)

@@ -267,6 +267,13 @@ module Action = struct
 
   module Set = HOVSet
 
+  module Group = struct
+    type g = PortUp of portId
+    type t = Set.t list
+    let union g1 g2 = 
+      
+  end
+
   let action_to_netkat (a:t) : NetKAT_Types.policy =
     let open NetKAT_Types in
     let open HOV in
@@ -556,7 +563,9 @@ module Pattern = struct
         ~ipDst:PTIp.(g is_empty join)
         ~tcpSrcPort:PT16.(g is_empty join)
         ~tcpDstPort:PT16.(g is_empty join) in
-    (* Printf.printf "SEQ\n X={%s}\n Y={%s}\n R=%s\n" (to_string x) (to_string y) (match r with None -> "None" | Some x -> to_string x); *)
+    (* Printf.printf "SEQ\n X={%s}\n Y={%s}\n R=%s\n" 
+       (to_string x) (to_string y) 
+       (match r with None -> "None" | Some x -> to_string x); *)
     r
 
   let seq_act (x:t) (a:Action.t) (y:t) : t option =
@@ -611,8 +620,6 @@ end
 
 module Local = struct
 
-  (* TODO(arjun): Why Action.Set.t? Don't we want to know that each
-     action affects a distinct field? Shouldn't this be Action.Map.t? *)
   type t = Action.Set.t Pattern.Map.t
 
   let rule_to_netkat p a : NetKAT_Types.policy =
@@ -695,6 +702,9 @@ module Local = struct
       (*   (to_string q) *)
       (*   (to_string r); *)
       r
+
+  let cond_port pt (p:t) (q:t) = 
+    intersect Action.Set.group_union p q 
 
   let seq (p:t) (q:t) : t =
     let merge ~key:_ v =
@@ -815,7 +825,8 @@ module Local = struct
       match pol with
         | NetKAT_Types.Filter pr ->
           let x = (of_pred pr) in
-          (* Printf.printf "### FILTER (%s) ###\n%s\n" (NetKAT_Pretty.string_of_policy pol) (to_string x);           *)
+          (* Printf.printf "### FILTER (%s) ###\n%s\n" 
+             (NetKAT_Pretty.string_of_policy pol) (to_string x); *)
           k x
         | NetKAT_Types.Mod hv ->
           let a = match hv with
@@ -847,7 +858,8 @@ module Local = struct
               Action.mk_tcpDstPort n in
           let s = Action.Set.singleton a in
           let m = Pattern.Map.singleton Pattern.top s in
-          (* Printf.printf "### MOD (%s) ###\n%s\n" (NetKAT_Pretty.string_of_policy pol) (to_string m);           *)
+          (* Printf.printf "### MOD (%s) ###\n%s\n" 
+             (NetKAT_Pretty.string_of_policy pol) (to_string m); *)
           k m
         | NetKAT_Types.Union (pol1, pol2) ->
           loop pol1 (fun p1 -> loop pol2 (fun p2 -> k (par p1 p2)))
@@ -855,8 +867,8 @@ module Local = struct
           loop pol1 (fun p1 -> loop pol2 (fun p2 -> k (seq p1 p2)))
         | NetKAT_Types.Star pol ->
           loop pol (fun p -> k (star p))
-        | NetKAT_Types.Link(sw,pt,sw',pt') ->
-          failwith "Not a local policy" in
+        | NetKAT_Types.CondPort(pt,pol1,pol2) ->
+          loop pol1 (fun p1 -> loop pol2 -> (fun p2 -> k (cond_port pt p1 p2)))
     loop pol (fun p -> p)
 end
 

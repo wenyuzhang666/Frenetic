@@ -25,7 +25,7 @@ let size (pol:policy) : int =
       | Union(pol1, pol2)
       | Seq(pol1, pol2) -> size pol1 (fun spol1 -> size pol2 (fun spol2 -> f (1 + spol1 + spol2)))
       | Star(pol) -> size pol (fun spol -> f (1 + spol))
-      | Link(_,_,_,_) -> f 5 in
+      | CondPort(_,pol1, pol2) -> size pol1 (fun spol1 -> size pol2 (fun spol2 -> f (2 + spol1 + spol2))) in 
   size pol (fun spol -> spol)
 
 let rec eval_pred (pkt : packet) (pr : pred) : bool = match pr with
@@ -92,8 +92,8 @@ let rec eval (pkt : packet) (pol : policy) : PacketSet.t = match pol with
       let acc'' = PacketSet.union acc acc' in
       if PacketSet.equal acc acc'' then acc else loop acc'' in
       loop (PacketSet.singleton pkt)
-  | Link(sw,pt,sw',pt') ->
-    PacketSet.empty (* JNF *)
+  | CondPort(pt,pol1, pol2) -> 
+    eval pkt pol1 (* NB: arbitrarily picking pol1 here *)
 
 let eval_pipes (packet:NetKAT_Types.packet) (pol:NetKAT_Types.policy)
   : (string * NetKAT_Types.packet) list * NetKAT_Types.packet list =

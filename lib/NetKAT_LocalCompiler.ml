@@ -267,12 +267,9 @@ module Action = struct
 
   module Set = HOVSet
 
-  module Group = struct
-    type g = PortUp of portId
-    type t = Set.t list
-    let union g1 g2 = 
-      
-  end
+  type ff = FF of portId * ff * ff
+          | S of Set.t
+  type rn = ff list
 
   let action_to_netkat (a:t) : NetKAT_Types.policy =
     let open NetKAT_Types in

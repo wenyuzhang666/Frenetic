@@ -24,7 +24,7 @@
 %token EQUALS
 %token SWITCH PORT SRCMAC DSTMAC FRAMETYPE VLAN VLANPCP SRCIP DSTIP PROTOCOLTYPE TCPSRCPORT TCPDSTPORT
 %token IF THEN ELSE
-%token SEMI AMP BAR PLUS COMMA SLASH
+%token SEMI AMP BAR PLUS COMMA SLASH LT GT
 %token LET IN
 %token FILTER
 %token ASSIGN
@@ -160,6 +160,8 @@ xpredicate:
 policy : 
   | policy BAR spolicy
       { Union ($1, $3) }
+  | policy LT GT spolicy
+      { Cond (Live, $1, $4) }
   | spolicy 
       { $1 }
 

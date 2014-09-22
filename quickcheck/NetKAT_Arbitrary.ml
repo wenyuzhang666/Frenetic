@@ -95,20 +95,6 @@ let gen_pred : pred QuickCheck_gen.gen =
       (3, gen_pred_ctor ())
       ]
 
-let arbitrary_link : policy QuickCheck_gen.gen = 
-  let open QuickCheck_gen in
-  let open Arbitrary_Base in
-  (* XXX(seliopou): The range of switch ids is currently limited in tests
-   * because of a bug in OCaml's Scanf library, reported here:
-   *
-   *   http://caml.inria.fr/mantis/view.php?id=6316
-   *)
-  arbitrary_uint48 >>= fun sw1 ->
-  arbitrary_portId >>= fun pt1 ->
-  arbitrary_uint48 >>= fun sw2 ->
-  arbitrary_portId >>= fun pt2 ->
-    ret_gen (Link(sw1,pt1,sw2,pt2))
-
 let gen_lf_atom_pol : policy QuickCheck_gen.gen  =
   let open QuickCheck_gen in
   oneof [
@@ -123,8 +109,7 @@ let gen_atom_pol : policy QuickCheck_gen.gen =
     (arbitrary_mod >>= fun hv ->
         ret_gen (Mod hv));
     (gen_pred >>= fun pr ->
-        ret_gen (Filter (pr)));
-    arbitrary_link ]
+        ret_gen (Filter (pr))) ]
 
 let rec gen_composite_pol arbitrary_atom : policy QuickCheck_gen.gen =
   let open QuickCheck_gen in 

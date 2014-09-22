@@ -42,8 +42,7 @@ type pred =
   with sexp
 
 type reg = 
-  | Random 
-  | Live of portId
+  | Live with sexp
 
 type policy =
   | Filter of pred
@@ -51,7 +50,7 @@ type policy =
   | Union of policy * policy
   | Seq of policy * policy
   | Star of policy
-  | Cond of cond * policy * policy
+  | Cond of reg * policy * policy
   with sexp
 
 let id = Filter True

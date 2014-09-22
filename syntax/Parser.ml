@@ -140,6 +140,8 @@ EXTEND Gram
       p = nk_pol_seq -> <:expr<$p$>>
     | p = nk_pol_union; "+"; q = nk_pol_seq ->
       <:expr<NetKAT_Types.Union ($p$, $q$)>>
+    | p = nk_pol_union; "<>"; q = nk_pol_seq ->
+      <:expr<NetKAT_Types.Cond (NetKAT_Types.Live, $p$, $q$)>>
   ]];
 
   nk_pol_cond : [[

@@ -1090,25 +1090,21 @@ module RunTime = struct
       (* Printf.printf "%s\n" (Action.set_to_string s1); *)
       (* Printf.printf "  x2=%s=>" (Pattern.to_string x2); *)
       (* Printf.printf "%s\n" (Action.set_to_string s2); *)
-      (* Printf.printf "  o1=%b\n  o2=%b\n" (Pattern.obscures x1 x2) (Pattern.obscures x2 x1); *)
       let r =
-        let ac = Action.group_compare g1 g2 in
-        if ac = 0 then
-          0
-        else
-          let o1 = Pattern.obscures x1 x2 in
-          let o2 = Pattern.obscures x2 x1 in
-          (* sanity check: no circular dependencies *)
-          if o1 && o2 then
-            begin
-              Printf.printf "Circular dependency between\n%s => %s\nand\n%s => %s\n"
-                (Pattern.to_string x1) (Action.group_to_string g1)
-                (Pattern.to_string x2) (Action.group_to_string g2);
-              assert false
-            end;
-          if o1 then -1
-          else if o2 then 1
-          else 0 in
+        let o1 = Pattern.obscures x1 x2 in
+        let o2 = Pattern.obscures x2 x1 in
+        (* Printf.printf "  o1=%b\n  o2=%b\n" o1 o2; *)
+        (* sanity check: no circular dependencies *)
+        if o1 && o2 then
+          begin
+            Printf.printf "Circular dependency between\n%s => %s\nand\n%s => %s\n"
+              (Pattern.to_string x1) (Action.group_to_string g1)
+              (Pattern.to_string x2) (Action.group_to_string g2);
+            assert false
+          end;
+        if o1 then -1
+        else if o2 then 1
+        else Action.group_compare g1 g2 in
       (* Printf.printf "r=%d\n" r; *)
       r
   end)

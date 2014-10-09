@@ -9,6 +9,8 @@ open Packet
 type switchId = SDN_Types.switchId with sexp
 type portId = SDN_Types.portId with sexp
 type payload = SDN_Types.payload with sexp
+type vswitchId = int64 with sexp
+type vportId = int64 with sexp
 
 (** {2 Policies} *)
 
@@ -30,6 +32,8 @@ type header_val =
   | IP4Dst of nwAddr * int32
   | TCPSrcPort of tpPort
   | TCPDstPort of tpPort
+  | VSwitch of vswitchId
+  | VPort of vportId
   with sexp
 
 type pred =

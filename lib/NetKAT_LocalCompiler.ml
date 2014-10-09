@@ -775,7 +775,7 @@ module Local = struct
           loop pr (fun (p:t) -> k (neg p))
         | NetKAT_Types.Test hv ->
           let x = match hv with
-            | NetKAT_Types.Switch n ->
+            | NetKAT_Types.Switch n | NetKAT_Types.VSwitch n | NetKAT_Types.VPort n ->
               failwith "Not a local policy"
             | NetKAT_Types.Location l ->
               Pattern.mk_location l
@@ -819,7 +819,7 @@ module Local = struct
           k x
         | NetKAT_Types.Mod hv ->
           let a = match hv with
-            | NetKAT_Types.Switch n ->
+            | NetKAT_Types.Switch n | NetKAT_Types.VSwitch n | NetKAT_Types.VPort n ->
               failwith "Not a local policy"
             | NetKAT_Types.Location l ->
               Action.mk_location l

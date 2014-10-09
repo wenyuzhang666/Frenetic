@@ -22,7 +22,7 @@
 %token ALL FWD STAR
 %token NONE
 %token EQUALS
-%token SWITCH PORT SRCMAC DSTMAC FRAMETYPE VLAN VLANPCP SRCIP DSTIP PROTOCOLTYPE TCPSRCPORT TCPDSTPORT
+%token SWITCH PORT SRCMAC DSTMAC FRAMETYPE VLAN VLANPCP SRCIP DSTIP PROTOCOLTYPE TCPSRCPORT TCPDSTPORT VSWITCH VPORT
 %token IF THEN ELSE
 %token SEMI AMP BAR PLUS COMMA SLASH
 %token LET IN
@@ -155,6 +155,10 @@ xpredicate:
       { Test(TCPSrcPort $3) }
   | TCPDSTPORT EQUALS tcp_port_value
       { Test(TCPDstPort $3) }
+  | VSWITCH EQUALS int64_value
+      { Test(VSwitch $3) }
+  | VPORT EQUALS int64_value
+      { Test(VPort $3) }
 
 /* TODO(jnf): should these be non-associative? */
 policy : 
@@ -206,6 +210,10 @@ xpolicy:
       { Mod(TCPSrcPort $3) }
   | TCPDSTPORT ASSIGN tcp_port_value
       { Mod(TCPDstPort $3) }
+  | VSWITCH ASSIGN int64_value
+      { Mod(VSwitch $3) }
+  | VPORT ASSIGN int64_value
+      { Mod(VPort $3) }
   | ID
       { id }
   | DROP 

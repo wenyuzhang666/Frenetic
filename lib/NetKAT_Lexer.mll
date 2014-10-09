@@ -51,6 +51,8 @@ rule token = parse
   | "ipProto" { PROTOCOLTYPE }
   | "tcpSrcPort" { TCPSRCPORT }
   | "tcpDstPort" { TCPDSTPORT }
+  | "vswitch" { VSWITCH }
+  | "vport" { VPORT }
   | "begin" { BEGIN }
   | "end" { END }
   | "if" { IF }

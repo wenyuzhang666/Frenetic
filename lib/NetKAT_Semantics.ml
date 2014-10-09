@@ -47,6 +47,7 @@ let rec eval_pred (pkt : packet) (pr : pred) : bool = match pr with
       | IP4Dst (n,m) -> Int32TupleHeader.lessthan (pkt.headers.ipDst,32l) (n,m)
       | TCPSrcPort n -> pkt.headers.tcpSrcPort = n
       | TCPDstPort n -> pkt.headers.tcpDstPort = n
+      | VSwitch n | VPort n -> true (* SJS *)
     end
   | And (pr1, pr2) -> eval_pred pkt pr1 && eval_pred pkt pr2
   | Or (pr1, pr2) -> eval_pred pkt pr1 || eval_pred pkt pr2
@@ -78,7 +79,8 @@ let rec eval (pkt : packet) (pol : policy) : PacketSet.t = match pol with
       | TCPSrcPort n ->
         { pkt with headers = { pkt.headers with tcpSrcPort = n }}
       | TCPDstPort n ->
-        { pkt with headers = { pkt.headers with tcpDstPort = n }} in
+        { pkt with headers = { pkt.headers with tcpDstPort = n }}
+      | VSwitch n | VPort n -> pkt (* SJS *) in
     PacketSet.singleton pkt'
   | Union (pol1, pol2) ->
     PacketSet.union (eval pkt pol1) (eval pkt pol2)

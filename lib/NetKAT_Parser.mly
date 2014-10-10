@@ -227,7 +227,7 @@ xpolicy:
   | LPAREN policy RPAREN 
       { $2 }
 
-predicate : 
+predicate :
   | xpredicate EOF  { $1 }
 
 program : 

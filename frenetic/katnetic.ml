@@ -47,6 +47,55 @@ module Global = struct
     ()
 end
 
+module Virtual = struct
+  let main vpolicy_file vtopo_file vingress_file pingress_file in_fabric_file out_fabric_file =
+    let fmt = Format.formatter_of_out_channel stderr in
+    let () = Format.pp_set_margin fmt 200 in
+    let vpolicy =
+      Core.Std.In_channel.with_file vpolicy_file ~f:(fun chan ->
+        NetKAT_Parser.program NetKAT_Lexer.token (Lexing.from_channel chan)) in
+    let vtopo =
+      Core.Std.In_channel.with_file vtopo_file ~f:(fun chan ->
+        NetKAT_Parser.program NetKAT_Lexer.token (Lexing.from_channel chan)) in
+    let vingress =
+      Core.Std.In_channel.with_file vingress_file ~f:(fun chan ->
+        NetKAT_Parser.program NetKAT_Lexer.token (Lexing.from_channel chan)) in
+    let pingress =
+      Core.Std.In_channel.with_file pingress_file ~f:(fun chan ->
+        NetKAT_Parser.predicate NetKAT_Lexer.token (Lexing.from_channel chan)) in
+    (* FIXME: egress shouldd not be hard coded *)
+    let pegress = NetKAT_Types.True in
+    let in_fabric =
+      Core.Std.In_channel.with_file in_fabric_file ~f:(fun chan ->
+        NetKAT_Parser.program NetKAT_Lexer.token (Lexing.from_channel chan)) in
+    let out_fabric =
+      Core.Std.In_channel.with_file out_fabric_file ~f:(fun chan ->
+        NetKAT_Parser.program NetKAT_Lexer.token (Lexing.from_channel chan)) in
+    let global_physical_pol =
+      NetKAT_VirtualCompiler.compile vpolicy vtopo vingress in_fabric out_fabric in
+    let local_physical_pol =
+      NetKAT_GlobalCompiler.compile pingress pegress global_physical_pol in
+    let tables =
+      List.map
+        (fun sw -> NetKAT_LocalCompiler.compile sw local_physical_pol
+                   |> NetKAT_LocalCompiler.to_table
+                   |> (fun t -> (sw, t)))
+        (NetKAT_GlobalCompiler.switches global_physical_pol) in
+    let print_table (sw, t) =
+      Format.fprintf fmt "[global] Flowtable for Switch %Ld:@\n@[%a@]@\n@\n"
+        sw
+        SDN_Types.format_flowTable t in
+    Format.fprintf fmt "[global] Parsed: @[%s@] @[%s@] @[%s@] @[%s@] @[%s@] @[%s@] @\n"
+      vpolicy_file vtopo_file vingress_file pingress_file in_fabric_file out_fabric_file;
+    Format.fprintf fmt "[global] Global Policy:@\n@[%a@]@\n"
+      NetKAT_Pretty.format_policy global_physical_pol;
+    Format.fprintf fmt "[global] CPS Policy:@\n@[%a@]@\n"
+      NetKAT_Pretty.format_policy local_physical_pol;
+    Format.fprintf fmt "[global] Localized CPS Policies:@\n";
+    List.iter print_table tables;
+    ()
+end
+
 module Dump = struct
   open Core.Std
   open Async.Std
@@ -190,12 +239,42 @@ let global_cmd : unit Cmdliner.Term.t * Cmdliner.Term.info =
   Term.(pure Global.main $ ingress_file $ egress_file $ policy_file),
   Term.info "global" ~doc
 
+let virtual_cmd : unit Cmdliner.Term.t * Cmdliner.Term.info =
+(* (vpolicy : policy) (vtopo : policy) (vingress : policy) (out_fabric : policy) (in_fabric : policy) *)
+  let doc = "invoke the virtual compiler and dump the resulting flow tables" in
+  let policy =
+    let doc = "file containing the local virtual policy (containing no links)" in
+    Arg.(required & (pos 0 (some file) None) & info [] ~docv:"POLICY" ~doc)
+  in
+  let topo =
+    let doc = "file containing the virtual topology" in
+    Arg.(required & (pos 1 (some file) None) & info [] ~docv:"TOPO" ~doc)
+  in
+  let vingress =
+    let doc = "file containing the virtual ingress" in
+    Arg.(required & (pos 2 (some file) None) & info [] ~docv:"INGRESS" ~doc)
+  in
+  let pingress =
+    let doc = "file containing the physical ingress" in
+    Arg.(required & (pos 3 (some file) None) & info [] ~docv:"INGRESS" ~doc)
+  in
+  let out_fabric =
+    let doc = "file containing the out-fabric" in
+    Arg.(required & (pos 4 (some file) None) & info [] ~docv:"OUT-FABRIC" ~doc)
+  in
+  let in_fabric =
+    let doc = "file containing the out-fabric" in
+    Arg.(required & (pos 5 (some file) None) & info [] ~docv:"IN-FABRIC" ~doc)
+  in
+  Term.(pure Virtual.main $ policy $ topo $ vingress $ pingress $ out_fabric $ in_fabric),
+  Term.info "virtual" ~doc
+
 let default_cmd : unit Cmdliner.Term.t * Cmdliner.Term.info =
   let doc = "an sdn controller platform" in
   Term.(ret (pure (`Help(`Plain, None)))),
   Term.info "katnetic" ~version:"1.6.1" ~doc
 
-let cmds = [run_cmd; dump_cmd; global_cmd]
+let cmds = [run_cmd; dump_cmd; global_cmd; virtual_cmd]
 
 let () = match Term.eval_choice default_cmd cmds with
   | `Error _ -> exit 1 | _ -> exit 0

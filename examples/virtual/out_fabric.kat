@@ -1,0 +1,2 @@
+(vswitch=1 and vport=2; switch=1; port:=2; 1@2=>2@1) +
+(vswitch=2 and vport=1; switch=2; port:=1; 2@1=>1@2) +

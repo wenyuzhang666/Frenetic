@@ -240,7 +240,6 @@ let global_cmd : unit Cmdliner.Term.t * Cmdliner.Term.info =
   Term.info "global" ~doc
 
 let virtual_cmd : unit Cmdliner.Term.t * Cmdliner.Term.info =
-(* (vpolicy : policy) (vtopo : policy) (vingress : policy) (out_fabric : policy) (in_fabric : policy) *)
   let doc = "invoke the virtual compiler and dump the resulting flow tables" in
   let policy =
     let doc = "file containing the local virtual policy (containing no links)" in
@@ -252,11 +251,11 @@ let virtual_cmd : unit Cmdliner.Term.t * Cmdliner.Term.info =
   in
   let vingress =
     let doc = "file containing the virtual ingress" in
-    Arg.(required & (pos 2 (some file) None) & info [] ~docv:"INGRESS" ~doc)
+    Arg.(required & (pos 2 (some file) None) & info [] ~docv:"VINGRESS" ~doc)
   in
   let pingress =
     let doc = "file containing the physical ingress" in
-    Arg.(required & (pos 3 (some file) None) & info [] ~docv:"INGRESS" ~doc)
+    Arg.(required & (pos 3 (some file) None) & info [] ~docv:"PINGRESS" ~doc)
   in
   let out_fabric =
     let doc = "file containing the out-fabric" in

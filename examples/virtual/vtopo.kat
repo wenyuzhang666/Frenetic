@@ -1,0 +1,4 @@
+(vswitch=1 and vport=2; vswitch:=2; vport:=1) +
+(vswitch=2 and vport=1; vswitch:=1; vport:=2) +
+(vswitch=3 and vport=2; vswitch:=4; vport:=1) +
+(vswitch=4 and vport=1; vswitch:=3; vport:=2)

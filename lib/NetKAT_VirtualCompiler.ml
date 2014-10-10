@@ -74,6 +74,13 @@ let get_vlocs (p : policy) =
           switch = 1; port = 1; vswitch := 3; vport := 3
         + switch = 2; port = 2; vswitch := 4; vport := 4
 
+   5) I just realized that the framework can even handle more complicated virtual ingress
+      specifications as the ones Arjun mentioned in our last meeting, e.g.
+        vingress =
+          IPProto = tcp; vswitch := 1; vport := 1
+        + IPProto = ucp; vswitch := 2; vport := 1
+      This is super awesome!!
+
    
   To gurantee correctness we will have to do some sort of "type checking", i.e. we have to make sure
   certain pre conditions are met.

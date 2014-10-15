@@ -499,6 +499,21 @@ let start app ?(port=6633) ?(update=`BestEffort) ?(policy_queue_size=0) () =
       edge = SwitchMap.empty;
     } in
 
+    (* Run embedded HTTP server *)
+    let routes = [
+      ("/topology", fun _ ->
+          Server.string_handler (Net.Pretty.to_json !(t.nib)));
+      ("/switch/([1-9][0-9]*)", fun g ->
+          let sw_id = Int64.of_string (Array.get g 1) in
+          Log.info ~tags "Requested policy for switch %Lu" sw_id;
+          let pol = Optimize.specialize_policy sw_id t.policy in 
+          Server.string_handler (NetKAT_Pretty.string_of_policy pol))
+    ] in
+
+    Server.create (routes @ Server.routes)
+    >>> (fun t ->
+       Log.info ~tags "Started embedded HTTP server.");
+
     (* Setup the controller stages. Use the provides features stage to collect
      * switch features, and sequence that with a stage that will transform
      * OpenFlow 1.0 events to the high-level event type that applications know

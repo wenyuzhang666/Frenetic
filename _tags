@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: cc6bfe2ec117dd9d7c919f0f3566686f)
+# DO NOT EDIT (digest: f65e49e66635e69dc32c0c880f4d6e82)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -34,6 +34,8 @@
 # Library async
 "async/async.cmxs": use_async
 <async/*.ml{,i}>: package(async)
+<async/*.ml{,i}>: package(cohttp)
+<async/*.ml{,i}>: package(cohttp.async)
 <async/*.ml{,i}>: package(core)
 <async/*.ml{,i}>: package(cstruct)
 <async/*.ml{,i}>: package(cstruct.syntax)
@@ -104,6 +106,8 @@
 # Executable katnetic
 "frenetic/katnetic.native": package(async)
 "frenetic/katnetic.native": package(cmdliner)
+"frenetic/katnetic.native": package(cohttp)
+"frenetic/katnetic.native": package(cohttp.async)
 "frenetic/katnetic.native": package(core)
 "frenetic/katnetic.native": package(cstruct)
 "frenetic/katnetic.native": package(cstruct.syntax)
@@ -123,6 +127,8 @@
 <frenetic/*.ml{,i}>: package(cmdliner)
 # Executable test_updates
 "frenetic/test_updates.byte": package(async)
+"frenetic/test_updates.byte": package(cohttp)
+"frenetic/test_updates.byte": package(cohttp.async)
 "frenetic/test_updates.byte": package(core)
 "frenetic/test_updates.byte": package(cstruct)
 "frenetic/test_updates.byte": package(cstruct.syntax)
@@ -140,6 +146,8 @@
 "frenetic/test_updates.byte": use_async
 "frenetic/test_updates.byte": use_netkat
 <frenetic/*.ml{,i}>: package(async)
+<frenetic/*.ml{,i}>: package(cohttp)
+<frenetic/*.ml{,i}>: package(cohttp.async)
 <frenetic/*.ml{,i}>: package(core)
 <frenetic/*.ml{,i}>: package(cstruct)
 <frenetic/*.ml{,i}>: package(cstruct.syntax)

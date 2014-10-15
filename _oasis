@@ -70,6 +70,8 @@ Library async
   Build$: flag(async)
   BuildDepends:
     async,
+    cohttp,
+    cohttp.async,
     core,
     cstruct,
     cstruct.syntax,
@@ -85,6 +87,7 @@ Library async
     Discovery,
     Learning,
     Raw_app,
+    Server,
     TUtil,
     Txn
   Modules:

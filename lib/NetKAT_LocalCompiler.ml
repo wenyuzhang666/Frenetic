@@ -1082,15 +1082,26 @@ module Local_Optimize = struct
   (*
    * Optimize a flow table by removing rules which are shadowed by other rules.
    *)
-  let remove_shadowed_rules (table: flowTable) : flowTable =
-    let flow_is_shadowed f t =
-      List.exists t
-        ~f:(fun x -> SDN_Types.Pattern.less_eq f.pattern x.pattern) in
-    List.rev (
-      List.fold_left
-        ~f:(fun acc x -> if flow_is_shadowed x acc then acc else (x::acc))
-        ~init:[]
-        table)
+  let flow_is_shadowed before f =
+    List.exists before
+      ~f:(fun x -> SDN_Types.Pattern.less_eq f.pattern x.pattern)
+
+  let flow_falls_through f after = 
+    List.for_all after
+      ~f:(fun x -> 
+        f.action = x.action ||
+          (not (SDN_Types.Pattern.less_eq f.pattern x.pattern) &&
+           not (SDN_Types.Pattern.less_eq x.pattern f.pattern)))  
+  
+  let rec loop before after = 
+    match after with 
+      | [] -> before
+      | x::rest -> 
+        if flow_is_shadowed before x || flow_falls_through x after then loop before rest
+        else loop (before @ [x]) after  
+
+  let optimize t = 
+    loop [] t 
 end
 
 (* exports *)
@@ -1103,7 +1114,7 @@ let to_policy =
   Local.to_policy
 
 let to_table ?(optimize_fall_through=false) t =
-  Local_Optimize.remove_shadowed_rules
+  Local_Optimize.optimize
     (RunTime.to_table t ~optimize_fall_through:optimize_fall_through)
 
 let to_string =

@@ -13,9 +13,28 @@ let create () =
   let open NetKAT_Types in
   let state = ref SwitchMap.empty in
 
-  let learn switch_id port_id packet =
+  let learn nib switch_id port_id packet =
     let ethSrc = packet.Packet.dlSrc in
     let mac_map = SwitchMap.find_exn !state switch_id in
+    
+    begin
+      let open Async_NetKAT.Net.Topology in
+      let h = try Some(vertex_of_label !nib (Host(ethSrc, 0l)))
+        with _ ->  None in
+      begin match TUtil.in_edge !nib switch_id port_id, h with
+        | true, None    ->
+          let nib', h = add_vertex !nib (Host(ethSrc, 0l)) in
+          let nib', s = add_vertex nib' (Switch switch_id) in
+          let nib', _ = add_edge nib' s port_id () h 0l in
+          let nib', _ = add_edge nib' h 0l () s port_id in
+          nib := nib';
+          Log.info ~tags "[topology.host] ↑ { switch = %Lu; port %lu }, { mac = %s }"
+            switch_id port_id
+            (Packet.string_of_mac ethSrc)
+        | _ -> ()
+      end
+    end;
+
     if MacMap.mem mac_map ethSrc then
       false
     else begin
@@ -75,7 +94,7 @@ let create () =
       return (Some(gen_pol !t))
     | PacketIn(_, switch_id, port_id, payload, _) ->
       let packet = Packet.parse (SDN_Types.payload_bytes payload) in
-      let pol = if learn switch_id port_id packet then
+      let pol = if learn t switch_id port_id packet then
          Some(gen_pol !t)
       else
          None in

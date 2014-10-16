@@ -165,8 +165,8 @@ let to_event (w_out : (switchId * SDN_Types.pktOut) Pipe.Writer.t)
       let open Net.Topology in
       let v  = vertex_of_label !(t.nib) (Async_NetKAT.Switch switch_id) in
       let ps = vertex_to_ports !(t.nib) v in
-      return (PortSet.fold (fun p acc -> (PortDown(switch_id, p))::acc)
-        ps [SwitchDown switch_id])
+      return (PortSet.fold ps ~init:[SwitchDown switch_id]
+		~f:(fun acc p -> (PortDown(switch_id, p))::acc))
     | `Message (c_id, (xid, msg)) ->
       let open OpenFlow0x01.Message in
       begin match Controller.switch_id_of_client t.ctl c_id, msg with
@@ -278,7 +278,7 @@ module PerPacketConsistent = struct
     List.fold_right actions ~init:[] ~f:(fun action acc ->
       begin match action with
       | Output (Physical   pt) ->
-        if not (Net.Topology.PortSet.mem pt internal_ports) then
+        if not (Net.Topology.PortSet.mem internal_ports pt) then
           [Modify (SetVlan None)]
         else
           [Modify (SetVlan (Some ver))]
@@ -292,7 +292,7 @@ module PerPacketConsistent = struct
     let vlan_none = 65535 in
     List.filter_map table ~f:(fun flow ->
       begin match flow.pattern.Pattern.inPort with
-      | Some pt when Net.Topology.PortSet.mem pt internal_ports ->
+      | Some pt when Net.Topology.PortSet.mem internal_ports pt ->
         None
       | _ ->
         Some { flow with
